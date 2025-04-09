@@ -1,13 +1,12 @@
-import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import Feed from "@/components/Feed";
 
-export default function Home() {
+export default function ForYouPage() {
   return (
-    <div className="flex w-full">
+    <div className="flex">
       <Sidebar />
       <main className="flex-1 p-4">
-        <Feed />
+        <Feed feedType="forYou" />
       </main>
     </div>
   );
