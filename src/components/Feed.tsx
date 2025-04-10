@@ -1,6 +1,7 @@
 "use client";
 
 import Post from './Post';
+import { Post as PostType } from '@/types/post';
 
 // Sample post data
 const SAMPLE_POSTS = [
@@ -26,8 +27,8 @@ const SAMPLE_POSTS = [
   },
   {
     id: 'post3',
-    title: 'What\'s your favorite underrated movie that deserves more attention?',
-    content: 'Looking for hidden gems to watch this weekend. What movies do you think are masterpieces but didn\'t get the recognition they deserve?',
+    title: "What's your favorite underrated movie that deserves more attention?",
+    content: "Looking for hidden gems to watch this weekend. What movies do you think are masterpieces but didn't get the recognition they deserve?",
     upvotes: 945,
     commentCount: 503,
     subredditName: 'movies',
@@ -37,23 +38,26 @@ const SAMPLE_POSTS = [
 ];
 
 type FeedProps = {
-  feedType?: 'forYou' | 'trending';
+  feedType?: 'forYou' | 'trending' | string;
+  posts?: PostType[];
 };
 
-const Feed = ({ feedType = 'forYou' }: FeedProps) => {
+const Feed = ({ feedType = 'forYou', posts = SAMPLE_POSTS }: FeedProps) => {
   return (
-    <div className="w-full flex flex-col items-center pt-4 pb-8 px-4">
-      <div className="w-full max-w-[60%] mx-auto">
-        <h2 className="text-xl font-bold mb-6 text-gray-900 dark:text-gray-100 text-center">
-          {feedType === 'forYou' ? 'For You' : 'Trending'}
-        </h2>
-
-        <div className="flex flex-col items-center space-y-8"> 
-          {SAMPLE_POSTS.map((post) => (
-            <div className="w-full rounded-xl overflow-hidden" key={post.id}> 
-              <Post {...post} />
+    <div className="flex-1 overflow-x-hidden pb-8 pl-64 pr-72 pt-16">
+      <div className="mx-auto max-w-2xl pt-4">
+        <div className="flex flex-col space-y-4"> 
+          {posts.length > 0 ? (
+            posts.map((post) => (
+              <div className="w-full rounded-xl overflow-hidden" key={post.id}> 
+                <Post {...post} />
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-lg">
+              <p className="text-gray-500">No posts found.</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>

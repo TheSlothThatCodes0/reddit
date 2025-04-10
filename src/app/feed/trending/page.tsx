@@ -1,13 +1,13 @@
 import Sidebar from "@/components/Sidebar";
 import Feed from "@/components/Feed";
+import PopularCommunities from "@/components/PopularCommunities";
 
 export default function TrendingPage() {
   return (
-    <div className="flex">
+    <div className="flex min-h-screen overflow-x-hidden">
       <Sidebar />
-      <main className="flex-1 p-4">
-        <Feed feedType="trending" />
-      </main>
+      <Feed feedType="trending" />
+      <PopularCommunities />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { Search } from 'lucide-react';
 
 const Navbar = () => {
   return (
-    <header className="h-16 bg-white dark:bg-gray-800 shadow-sm z-10 w-full">
+    <header className="h-16 bg-white dark:bg-gray-800 shadow-sm fixed top-0 left-0 right-0 z-50">
       <div className="container mx-auto h-full flex items-center justify-between px-4">
         {/* Logo */}
         <div className="flex-shrink-0">

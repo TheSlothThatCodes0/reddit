@@ -1,14 +1,13 @@
-import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import Feed from "@/components/Feed";
+import PopularCommunities from "@/components/PopularCommunities";
 
 export default function Home() {
   return (
-    <div className="flex w-full">
+    <div className="flex w-full min-h-screen overflow-x-hidden">
       <Sidebar />
-      <main className="flex-1 p-4">
-        <Feed />
-      </main>
+      <Feed />
+      <PopularCommunities />
     </div>
   );
 }

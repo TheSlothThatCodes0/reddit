@@ -25,7 +25,7 @@ const Post = ({
   timePosted,
 }: PostProps) => {
   return (
-    <div className="bg-white dark:bg-gray-200 rounded-2xl border border-gray-200 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-600 rounded-2xl">
       <div className="flex">
         {/* Vote column */}
         <div className="w-12 bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-2">
@@ -49,7 +49,7 @@ const Post = ({
             </h3>
           </Link>
           <p className="text-gray-700 dark:text-gray-300 mb-3">
-            {content}
+            {content.length > 200 ? `${content.substring(0, 200)}...` : content}
           </p>
           <div className="flex text-gray-500 text-sm">
             <Link href={`/r/${subredditName}/${id}`} className="flex items-center mr-4 hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-2 py-1 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">

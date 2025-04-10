@@ -20,7 +20,7 @@ const Sidebar = () => {
   const [expanded, setExpanded] = useState(true);
 
   return (
-    <aside className="w-64 border-r border-gray-200 dark:border-gray-700 sticky-sidebar">
+    <aside className="w-64 border-r border-gray-200 dark:border-gray-700 fixed top-16 left-0 bottom-0 overflow-y-auto">
       <div className="p-4">
         {/* Feed Tabs */}
         <div className="space-y-1 mb-6">
