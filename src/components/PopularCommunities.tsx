@@ -14,7 +14,7 @@ const PopularCommunities = () => {
   return (
     <aside className="w-80 fixed top-28 right-18 bottom-0 overflow-y-auto">
       <div className="p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="bg-white dark:bg-[#121212] rounded-lg shadow">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
               Popular Communities
@@ -28,7 +28,7 @@ const PopularCommunities = () => {
                 className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
               >
                 <div className="flex items-center">
-                  <div className="w-6 h-6 rounded-full bg-blue-500 mr-2"></div>
+                  <div className="w-6 h-6 rounded-full bg-orange-600 mr-2"></div>
                   <span className="text-sm font-medium">r/{community.name}</span>
                 </div>
                 <span className="text-xs text-gray-500">{community.members}</span>

@@ -52,20 +52,14 @@ const Post = ({
     <>
       <div className="bg-[#121212] text-white px-4 py-2 rounded-lg">
 
-        <div className="flex items-center mb-1 py-1 border-b-2 border-gray-700">
-          <div className="flex items-center text-sm text-gray-400">
+        <div className="flex items-center mb-1 py-1">
+          <div className="flex items-center text-xs text-gray-400">
             <Link href={`/r/${subredditName}`} className="font-medium">r/{subredditName}</Link>
             <span className="mx-1">•</span>
             <span>{timePosted}</span>
           </div>
-          <div className="ml-auto">
-            <button>
-              <MoreHorizontal size={18} className="text-gray-500" />
-            </button>
-          </div>
         </div>
         
-
         <h3 className="text-xl font-medium mb-2">
           {title}
         </h3>
