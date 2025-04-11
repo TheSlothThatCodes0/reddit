@@ -60,16 +60,16 @@ const Post = ({
           </div>
         </div>
         
-        <h3 className="text-xl font-medium mb-2">
-          {title}
-        </h3>
+        <Link href={`/r/${subredditName}/${id}`} className="block hover:opacity-90">
+          <h3 className="text-xl font-medium mb-2">
+            {title}
+          </h3>
+          
+          <div className="text-gray-300 mb-3">
+            {content.length > 200 ? `${content.substring(0, 200)}...` : content}
+          </div>
+        </Link>
         
-
-        <div className="text-gray-300 mb-3">
-          {content.length > 200 ? `${content.substring(0, 200)}...` : content}
-        </div>
-        
-
         <div className="flex items-center">
 
           <div className="flex items-center bg-[#272729] rounded-full px-2 py-1 mr-2">

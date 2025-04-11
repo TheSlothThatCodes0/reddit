@@ -13,7 +13,7 @@ const PopularPosts = () => {
   return (
     <aside className="w-72 fixed top-28 right-20 bottom-0 overflow-y-auto">
       <div className="p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="bg-white dark:bg-[#121212] rounded-lg shadow">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
               Popular Posts

@@ -21,7 +21,7 @@ export default function PostPage({ params }: { params: { subreddit: string; post
   const comments = SAMPLE_COMMENTS.filter(comment => comment.postId === params.postID);
 
   return (
-    <div className="flex min-h-screen overflow-x-hidden">
+    <div className="flex min-h-screen overflow-x-hidden bg-[#030303] text-white">
       <Sidebar />
       <div className="flex-1 overflow-x-hidden pb-8 pl-64 pr-72 pt-16">
         <div className="mx-auto max-w-3xl pt-4">
