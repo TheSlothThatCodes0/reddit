@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowUp, ArrowDown, MessageSquare, Share2 } from 'lucide-react';
+import { ArrowUp, ArrowDown, MessageSquare, Award, Share2, MoreHorizontal } from 'lucide-react';
 
 type PostProps = {
   id: string;
@@ -18,48 +19,107 @@ const Post = ({
   id,
   title,
   content,
-  upvotes,
+  upvotes: initialUpvotes,
   commentCount,
   subredditName,
   authorName,
   timePosted,
 }: PostProps) => {
+  const [voteStatus, setVoteStatus] = useState<'up' | 'down' | null>(null);
+  const [upvotes, setUpvotes] = useState(initialUpvotes);
+
+  const handleUpvote = () => {
+    if (voteStatus === 'up') {
+      setVoteStatus(null);
+      setUpvotes(upvotes - 1);
+    } else {
+      setVoteStatus('up');
+      setUpvotes(voteStatus === 'down' ? upvotes + 2 : upvotes + 1);
+    }
+  };
+
+  const handleDownvote = () => {
+    if (voteStatus === 'down') {
+      setVoteStatus(null);
+      setUpvotes(upvotes + 1);
+    } else {
+      setVoteStatus('down');
+      setUpvotes(voteStatus === 'up' ? upvotes - 2 : upvotes - 1);
+    }
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-600 rounded-2xl">
-      <div className="flex">
-        {/* Vote column */}
-        <div className="w-12 bg-gray-50 dark:bg-gray-900 flex flex-col items-center py-2">
-          <button className="vote-button text-gray-400 hover:text-orange-500">
-            <ArrowUp size={20} color='grey' />
-          </button>
-          <span className="text-xs font-medium my-1">{upvotes}</span>
-          <button className="vote-button text-gray-700 hover:text-blue-500">
-            <ArrowDown size={20} color='grey'/>
-          </button>
+    <>
+      <div className="bg-[#121212] text-white px-4 py-2 rounded-lg">
+
+        <div className="flex items-center mb-1 py-1 border-b-2 border-gray-700">
+          <div className="flex items-center text-sm text-gray-400">
+            <Link href={`/r/${subredditName}`} className="font-medium">r/{subredditName}</Link>
+            <span className="mx-1">•</span>
+            <span>{timePosted}</span>
+          </div>
+          <div className="ml-auto">
+            <button>
+              <MoreHorizontal size={18} className="text-gray-500" />
+            </button>
+          </div>
         </div>
         
-        {/* Post content */}
-        <div className="flex-1 p-4">
-          <div className="text-xs text-gray-500">
-            Posted by <Link href={`/user/${authorName}`} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">u/{authorName}</Link> in <Link href={`/r/${subredditName}`} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">r/{subredditName}</Link> • {timePosted}
+
+        <h3 className="text-xl font-medium mb-2">
+          {title}
+        </h3>
+        
+
+        <div className="text-gray-300 mb-3">
+          {content.length > 200 ? `${content.substring(0, 200)}...` : content}
+        </div>
+        
+
+        <div className="flex items-center">
+
+          <div className="flex items-center bg-[#272729] rounded-full px-2 py-1 mr-2">
+            <button 
+              className="p-0.5"
+              onClick={handleUpvote}
+            >
+              <ArrowUp 
+                size={18} 
+                className={voteStatus === 'up' 
+                  ? "text-orange-500 " 
+                  : "text-gray-500"} 
+              />
+            </button>
+            <span className="mx-1 text-sm font-medium">{upvotes}</span>
+            <button 
+              className="p-0.5"
+              onClick={handleDownvote}
+            >
+              <ArrowDown 
+                size={18} 
+                className={voteStatus === 'down' 
+                  ? "text-blue-500 " 
+                  : "text-gray-500"} 
+              />
+            </button>
           </div>
-          <Link href={`/r/${subredditName}/${id}`} className="block">
-            <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300">
-              {title}
-            </h3>
-          </Link>
-          <p className="text-gray-700 dark:text-gray-300 mb-3">
-            {content.length > 200 ? `${content.substring(0, 200)}...` : content}
-          </p>
-          <div className="flex text-gray-500 text-sm">
-            <Link href={`/r/${subredditName}/${id}`} className="flex items-center mr-4 hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-2 py-1 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
-              <MessageSquare size={16} className="mr-1" />
-              <span>{commentCount} Comments</span>
-            </Link>
-          </div>
+          
+
+          <button className="flex items-center bg-[#272729] rounded-full px-3 py-1 mr-2">
+            <MessageSquare size={16} className="mr-1 text-gray-500" />
+            <span className="text-sm text-gray-400">{commentCount}</span>
+          </button>
+          
+
+          <button className="flex items-center bg-[#272729] rounded-full px-3 py-1">
+            <Share2 size={16} className="mr-1 text-gray-500" />
+            <span className="text-sm text-gray-400">Share</span>
+          </button>
         </div>
       </div>
-    </div>
+
+      <div className="h-[1px] bg-[#272729] mt-4"></div>
+    </>
   );
 };
 
