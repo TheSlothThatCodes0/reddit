@@ -22,7 +22,7 @@ const Sidebar = () => {
   return (
     <aside className="w-64 border-r border-gray-200 dark:border-gray-700 fixed top-16 left-0 bottom-0 overflow-y-auto">
       <div className="p-4">
-        {/* Feed Tabs */}
+
         <div className="space-y-1 mb-6">
           <Link
             href="/feed/forYou"
@@ -50,7 +50,7 @@ const Sidebar = () => {
           </Link>
         </div>
 
-        {/* Communities section */}
+
         <div className="mt-6">
           <div 
             className="flex items-center justify-between mb-2 cursor-pointer"
@@ -71,7 +71,7 @@ const Sidebar = () => {
                     href={`/r/${subreddit.id}`}
                     className="flex items-center px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
                   >
-                    <span className="w-6 h-6 mr-2 bg-gradient-to-br from-blue-400 to-purple-500 text-white rounded-full flex items-center justify-center text-xs">
+                    <span className="w-8 h-8 mr-2 bg-gradient-to-br from-red-300 to-orange-700 text-white rounded-full flex items-center justify-center text-xs">
                       r/
                     </span>
                     {subreddit.name}
