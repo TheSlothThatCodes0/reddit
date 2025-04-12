@@ -44,7 +44,7 @@ type FeedProps = {
 
 const Feed = ({ feedType = 'forYou', posts = SAMPLE_POSTS }: FeedProps) => {
   return (
-    <div className="flex-1 overflow-x-hidden pb-8 pl-64 pr-72 pt-16">
+    <div className="flex-1 overflow-x-hidden bg-zinc-900 pb-8 pl-64 pr-72 pt-16">
       <div className="mx-auto max-w-2xl pt-4">
         <div className="flex flex-col space-y-4"> 
           {posts.length > 0 ? (

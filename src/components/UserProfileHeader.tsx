@@ -88,7 +88,7 @@ const UserProfileHeader = ({ user, isCurrentUser }: UserProfileHeaderProps) => {
             {isCurrentUser && !isEditing && (
               <button 
                 onClick={() => setIsEditing(true)}
-                className="px-4 py-1 text-sm font-medium rounded-full bg-blue-500 text-white hover:bg-blue-600"
+                className="px-4 py-1 text-sm font-medium rounded-full bg-gray-600 text-white hover:bg-blue-600"
               >
                 Edit Profile
               </button>

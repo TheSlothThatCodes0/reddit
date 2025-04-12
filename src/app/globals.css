@@ -21,7 +21,7 @@ body {
   background: rgb(var(--background-start-rgb));
   font-family: var(--font-geist-sans);
   background-color: #f8f9fa;
-  color: #1c1c1c;
+  color: #1a1aab;
 }
 
 @media (prefers-color-scheme: dark) {

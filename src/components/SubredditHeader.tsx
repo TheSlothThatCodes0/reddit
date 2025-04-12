@@ -26,7 +26,7 @@ const SubredditHeader = ({ subreddit }: SubredditHeaderProps) => {
       <div className="mx-auto max-w-3xl px-4 pb-3 pt-4 relative">
         {/* Subreddit icon */}
         <div className="flex items-end absolute -top-6">
-          <div className="w-16 h-16 rounded-full bg-blue-500 border-4 border-white dark:border-gray-800 flex items-center justify-center text-white text-2xl font-bold">
+          <div className="w-24 h-24 right-30 bottom-5 relative rounded-full bg-zinc-500 border-4 border-white dark:border-gray-800 flex items-center justify-center text-white text-2xl font-bold">
             {subreddit.name.charAt(0).toUpperCase()}
           </div>
         </div>
@@ -40,11 +40,11 @@ const SubredditHeader = ({ subreddit }: SubredditHeaderProps) => {
                 className="px-4 py-1 text-sm font-medium rounded-full bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
               >
                 <Bell size={18} className="inline mr-1" />
-                Join
+                Notify
               </button>
               <button 
                 onClick={handleJoin}
-                className="px-4 py-1 text-sm font-medium rounded-full bg-blue-500 text-white hover:bg-blue-600"
+                className="px-4 py-1 text-sm font-medium rounded-full bg-gray-600 text-white hover:bg-blue-600"
               >
                 Join
               </button>

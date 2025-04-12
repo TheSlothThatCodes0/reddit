@@ -14,7 +14,7 @@ const UserComment = ({ comment }: UserCommentProps) => {
   const associatedPost = SAMPLE_POSTS.find(post => post.id === comment.postId);
 
   return (
-    <div className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+    <div className="bg-white dark:bg-zinc-800 rounded-lg p-3 shadow-sm">
       <div className="text-xs text-gray-500 mb-1">
         <Link href={`/r/${associatedPost?.subredditName || 'unknown'}`} className="hover:underline">
           r/{associatedPost?.subredditName || 'unknown'}

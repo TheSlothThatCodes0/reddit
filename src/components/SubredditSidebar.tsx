@@ -20,7 +20,7 @@ const SubredditSidebar = ({ subreddit }: SubredditSidebarProps) => {
     <div className="flex flex-col space-y-4 sticky top-20">
       {/* About Community */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-        <div className="p-3 bg-blue-500 text-white font-medium">
+        <div className="p-3 bg-zinc-900 text-white font-medium">
           About r/{subreddit.name}
         </div>
         <div className="p-4">
@@ -40,7 +40,7 @@ const SubredditSidebar = ({ subreddit }: SubredditSidebarProps) => {
 
       {/* Rules */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-        <div className="p-3 bg-blue-500 text-white font-medium">
+        <div className="p-3 bg-zinc-900 text-white font-medium">
           r/{subreddit.name} Rules
         </div>
         <div className="p-2">
@@ -56,7 +56,7 @@ const SubredditSidebar = ({ subreddit }: SubredditSidebarProps) => {
       
       {/* Moderators */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-        <div className="p-3 bg-blue-500 text-white font-medium">
+        <div className="p-3 bg-zinc-900 text-white font-medium">
           Moderators
         </div>
         <div className="p-2">
@@ -71,7 +71,7 @@ const SubredditSidebar = ({ subreddit }: SubredditSidebarProps) => {
             ))}
           </div>
           <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-            <Link href="#" className="text-sm text-blue-500 hover:underline pl-2">
+            <Link href="#" className="text-sm text-zinc-900 hover:underline pl-2">
               View All Moderators
             </Link>
           </div>
@@ -80,7 +80,7 @@ const SubredditSidebar = ({ subreddit }: SubredditSidebarProps) => {
 
       {/* Similar Communities */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-        <div className="p-3 bg-blue-500 text-white font-medium">
+        <div className="p-3 bg-zinc-900 text-white font-medium">
           Similar Communities
         </div>
         <div className="p-2">

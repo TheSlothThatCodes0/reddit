@@ -1,12 +1,11 @@
 "use client";
-
-import Link from 'next/link';
-import { ArrowUp, ArrowDown, MessageSquare, Share2, Bookmark } from 'lucide-react';
-import type { Post } from '@/types/post';
 import { useState } from 'react';
+import Link from 'next/link';
+import { ArrowUp, ArrowDown, MessageSquare, Award, Share2, MoreHorizontal } from 'lucide-react';
+import { Post as PostType } from '@/types/post';
 
 type PostDetailProps = {
-  post: Post;
+  post: PostType;
 };
 
 const PostDetail = ({ post }: PostDetailProps) => {
@@ -34,70 +33,70 @@ const PostDetail = ({ post }: PostDetailProps) => {
   };
 
   return (
-    <div className="bg-[#121212] text-white rounded-lg shadow-sm mb-6">
-      <div className="flex">
-        {/* Vote column */}
-        <div className="w-12 bg-[#1A1A1B] flex flex-col items-center py-4 rounded-l-lg">
+    <div className="bg-white dark:bg-[#121212] text-gray-900 dark:text-white px-4 py-2 rounded-lg mb-4">
+      <div className="flex items-center mb-1 py-1">
+        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+          <Link href={`/r/${post.subredditName}`} className="font-medium">r/{post.subredditName}</Link>
+          <span className="mx-1">•</span>
+          <span>Posted by{" "}
+            <Link href={`/u/${post.username}`} className="hover:underline">
+              u/{post.username}
+            </Link>
+          </span>
+          <span className="mx-1">•</span>
+          <span>{post.timePosted}</span>
+        </div>
+      </div>
+      
+      <h1 className="text-xl font-medium mb-2">
+        {post.title}
+      </h1>
+      
+      <div className="text-gray-800 dark:text-gray-300 mb-3 whitespace-pre-wrap">
+        {post.content}
+      </div>
+      
+      <div className="flex items-center">
+        <div className="flex items-center bg-gray-100 dark:bg-[#272729] rounded-full px-2 py-1 mr-2">
           <button 
-            className="vote-button" 
+            className="p-0.5"
             onClick={handleUpvote}
           >
             <ArrowUp 
-              size={20} 
+              size={18} 
               className={voteStatus === 'up' 
                 ? "text-orange-500" 
-                : "text-gray-500 hover:text-orange-500"} 
+                : "text-gray-500"} 
             />
           </button>
-          <span className="text-xs font-medium my-1">{upvotes}</span>
+          <span className="mx-1 text-sm font-medium">{upvotes}</span>
           <button 
-            className="vote-button" 
+            className="p-0.5"
             onClick={handleDownvote}
           >
             <ArrowDown 
-              size={20}
+              size={18} 
               className={voteStatus === 'down' 
                 ? "text-blue-500" 
-                : "text-gray-500 hover:text-blue-500"} 
+                : "text-gray-500"} 
             />
           </button>
         </div>
         
-        {/* Post content */}
-        <div className="flex-1 p-4">
-          {/* Post header */}
-          <div className="text-xs text-gray-400 mb-2">
-            Posted by <Link href={`/user/${post.authorName}`} className="text-gray-400 hover:underline">u/{post.authorName}</Link> in <Link href={`/r/${post.subredditName}`} className="text-gray-400 hover:underline">r/{post.subredditName}</Link> • {post.timePosted}
-          </div>
-          
-          {/* Post title */}
-          <h1 className="text-xl font-semibold mb-3 text-white">
-            {post.title}
-          </h1>
-          
-          {/* Post content */}
-          <div className="text-gray-300 mb-4 whitespace-pre-wrap">
-            {post.content}
-          </div>
-          
-          {/* Post actions */}
-          <div className="flex text-gray-400 text-sm border-t border-[#272729] pt-3">
-            <div className="flex items-center mr-6 hover:bg-[#272729] rounded px-2 py-1">
-              <MessageSquare size={16} className="mr-1 text-gray-500" />
-              <span>{post.commentCount} Comments</span>
-            </div>
-            
-            <div className="flex items-center mr-6 hover:bg-[#272729] rounded px-2 py-1">
-              <Share2 size={16} className="mr-1 text-gray-500" />
-              <span>Share</span>
-            </div>
-            
-            <div className="flex items-center hover:bg-[#272729] rounded px-2 py-1">
-              <Bookmark size={16} className="mr-1 text-gray-500" />
-              <span>Save</span>
-            </div>
-          </div>
-        </div>
+        <button className="flex items-center bg-gray-100 dark:bg-[#272729] rounded-full px-3 py-1 mr-2">
+          <MessageSquare size={16} className="mr-1 text-gray-500" />
+          <span className="text-sm text-gray-600 dark:text-gray-400">{post.commentCount}</span>
+        </button>
+        
+        <button className="flex items-center bg-gray-100 dark:bg-[#272729] rounded-full px-3 py-1 mr-2">
+          <Award size={16} className="mr-1 text-gray-500" />
+          <span className="text-sm text-gray-600 dark:text-gray-400">Award</span>
+        </button>
+        
+        <button className="flex items-center bg-gray-100 dark:bg-[#272729] rounded-full px-3 py-1">
+          <Share2 size={16} className="mr-1 text-gray-500" />
+          <span className="text-sm text-gray-600 dark:text-gray-400">Share</span>
+        </button>
       </div>
     </div>
   );
