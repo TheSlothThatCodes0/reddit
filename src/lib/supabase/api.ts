@@ -1163,4 +1163,210 @@ export async function unsubscribeFromSubreddit(
   }
 }
 
+/**
+ * Type for User Profile returned by the API
+ */
+export type UserProfileApiResponse = {
+  user: UserProfile | null;
+  error: string | null;
+}
+
+/**
+ * Type for User Posts returned by the API
+ */
+export type UserPostsApiResponse = {
+  posts: Post[];
+  error: string | null;
+}
+
+/**
+ * Type for User Comments returned by the API
+ */
+export type UserCommentsApiResponse = {
+  comments: any[]; // Using any[] for now since we didn't create a Comment type yet
+  error: string | null;
+}
+
+/**
+ * Fetches a user profile by username
+ */
+export async function getUserProfileByUsername(username: string): Promise<UserProfileApiResponse> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    const { data, error } = await supabase.rpc('get_user_profile_by_username', {
+      p_username: username
+    });
+    
+    if (error) {
+      console.error("Error fetching user profile:", error);
+      return { 
+        user: null, 
+        error: error.message 
+      };
+    }
+    
+    if (!data || data.length === 0) {
+      return { 
+        user: null, 
+        error: `User ${username} not found` 
+      };
+    }
+    
+    const userData = data[0];
+    
+    const userProfile: UserProfile = {
+      username: userData.username,
+      displayName: userData.display_name || userData.username,
+      avatarUrl: userData.avatar || undefined,
+      avatarColor: getRandomColorForUser(userData.username), // Helper function to generate consistent avatar colors
+      bannerColor: undefined,
+      bio: userData.bio || undefined,
+      karma: userData.karma || 0,
+      joinDate: formatDate(userData.created_at),
+      location: userData.location || undefined,
+      isVerified: false
+    };
+    
+    return { user: userProfile, error: null };
+  } catch (err: any) {
+    console.error("Exception fetching user profile:", err);
+    return { 
+      user: null, 
+      error: "Failed to load user profile information" 
+    };
+  }
+}
+
+/**
+ * Fetches posts made by a specific user
+ */
+export async function getUserPosts(username: string): Promise<UserPostsApiResponse> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    const { data, error } = await supabase.rpc('get_user_posts', {
+      p_username: username
+    });
+    
+    if (error) {
+      console.error("Error fetching user posts:", error);
+      return { 
+        posts: [], 
+        error: error.message 
+      };
+    }
+    
+    const transformedPosts: Post[] = (data || []).map(post => {
+      // Extract content safely
+      let contentText = '';
+      if (post.content) {
+        if (typeof post.content === 'string') {
+          try {
+            const parsed = JSON.parse(post.content);
+            contentText = parsed.text || '';
+          } catch {
+            contentText = post.content;
+          }
+        } else if (typeof post.content === 'object') {
+          contentText = post.content.text || JSON.stringify(post.content);
+        }
+      }
+      
+      return {
+        id: post.id,
+        title: post.title || 'Untitled',
+        content: contentText,
+        upvotes: post.vote_score || 0,
+        commentCount: post.comment_count || 0,
+        subredditName: post.subreddit_name || 'unknown',
+        authorName: post.author_name || username,
+        timePosted: post.created_at ? formatDate(post.created_at) : 'unknown date',
+      };
+    });
+    
+    return { posts: transformedPosts, error: null };
+  } catch (err: any) {
+    console.error("Exception fetching user posts:", err);
+    return { 
+      posts: [], 
+      error: "Failed to load user posts" 
+    };
+  }
+}
+
+/**
+ * Fetches comments made by a specific user
+ */
+export async function getUserComments(username: string): Promise<UserCommentsApiResponse> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    const { data, error } = await supabase.rpc('get_user_comments', {
+      p_username: username
+    });
+    
+    if (error) {
+      console.error("Error fetching user comments:", error);
+      return { 
+        comments: [], 
+        error: error.message 
+      };
+    }
+    
+    const transformedComments = (data || []).map(comment => {
+      // Extract content safely
+      let contentText = '';
+      if (comment.content) {
+        if (typeof comment.content === 'string') {
+          try {
+            const parsed = JSON.parse(comment.content);
+            contentText = parsed.text || '';
+          } catch {
+            contentText = comment.content;
+          }
+        } else if (typeof comment.content === 'object') {
+          contentText = comment.content.text || JSON.stringify(comment.content);
+        }
+      }
+      
+      return {
+        id: comment.id,
+        content: contentText,
+        authorName: comment.author_name,
+        postId: comment.post_id,
+        postTitle: comment.post_title,
+        subredditName: comment.subreddit_name,
+        timePosted: comment.created_at ? formatDate(comment.created_at) : 'unknown date',
+        upvotes: comment.vote_score || 0
+      };
+    });
+    
+    return { comments: transformedComments, error: null };
+  } catch (err: any) {
+    console.error("Exception fetching user comments:", err);
+    return { 
+      comments: [], 
+      error: "Failed to load user comments" 
+    };
+  }
+}
+
+// Helper function to generate consistent colors for users
+function getRandomColorForUser(username: string): string {
+  // List of available colors
+  const colors = ['red', 'green', 'blue', 'purple', 'orange', 'yellow', 'teal'];
+  
+  // Create a simple hash of the username
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) {
+    hash = ((hash << 5) - hash) + username.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  
+  // Use the hash to pick a consistent color
+  const colorIndex = Math.abs(hash) % colors.length;
+  return colors[colorIndex];
+}
+
 // Add more API functions as needed

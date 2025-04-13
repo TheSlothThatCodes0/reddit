@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowUp, ArrowDown, MessageSquare, Share2 } from 'lucide-react';
 import { voteOnPost, getUserVoteOnPost } from '@/lib/supabase/api';
+import AwardIcon from './AwardIcon';
+import AwardSelector from './AwardSelector';
+
+type AwardType = 'bronze' | 'silver' | 'gold' | 'diamond';
 
 type PostProps = {
   id: string;
@@ -30,6 +34,9 @@ const Post = ({
   const [voteStatus, setVoteStatus] = useState<'up' | 'down' | null>(null);
   const [upvotes, setUpvotes] = useState(initialUpvotes);
   const [isVoting, setIsVoting] = useState(false);
+  const [isAwardSelectorOpen, setIsAwardSelectorOpen] = useState(false);
+  // Mock state for awards - in a real app, these would come from an API
+  const [awards, setAwards] = useState<AwardType[]>([]);
   const router = useRouter();
 
   // Load initial vote status
@@ -116,6 +123,49 @@ const Post = ({
     router.push(`/r/${subredditName}/${id}`);
   };
 
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation to post detail
+    
+    // Create the post URL
+    const postUrl = `${window.location.origin}/r/${subredditName}/${id}`;
+    
+    // Check if the Web Share API is supported
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: title,
+          text: `Check out this post on Reddit: ${title}`,
+          url: postUrl,
+        });
+        console.log('Post shared successfully');
+      } catch (err) {
+        // User might have canceled the share operation
+        console.log('Share was canceled or failed:', err);
+      }
+    } else {
+      // Fallback for browsers that don't support the Web Share API
+      // Copy the link to clipboard
+      try {
+        await navigator.clipboard.writeText(postUrl);
+        alert('Link copied to clipboard!');
+      } catch (err) {
+        console.error('Failed to copy link:', err);
+        alert('Could not copy link. Please copy it manually: ' + postUrl);
+      }
+    }
+  };
+
+  const handleAwardClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation to post detail
+    setIsAwardSelectorOpen(true);
+  };
+
+  const handleAwardGiven = (awardType: AwardType) => {
+    // In a real app, this would call an API and then refresh the awards
+    // For now, we'll just update the local state
+    setAwards([...awards, awardType]);
+  };
+
   return (
     <div 
       className="bg-[#121212] text-white rounded-2xl w-full cursor-pointer"
@@ -127,6 +177,29 @@ const Post = ({
             <Link href={`/r/${subredditName}`} className="font-medium">r/{subredditName}</Link>
             <span className="mx-1">•</span>
             <span>{timePosted}</span>
+            
+            {/* Display awards if there are any */}
+            {awards.length > 0 && (
+              <>
+                <span className="mx-1">•</span>
+                <div className="flex items-center ml-1">
+                  {/* Show up to 3 different award types */}
+                  {Array.from(new Set(awards)).slice(0, 3).map((type, index) => (
+                    <AwardIcon 
+                      key={`${type}-${index}`} 
+                      type={type} 
+                      size={14} 
+                      className="mx-0.5" 
+                    />
+                  ))}
+                  
+                  {/* If there are more than 3 award types, show a count */}
+                  {new Set(awards).size > 3 && (
+                    <span className="text-xs text-gray-400 ml-1">+{new Set(awards).size - 3}</span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
         
@@ -174,12 +247,33 @@ const Post = ({
             <span className="text-sm text-gray-400">{commentCount}</span>
           </button>
           
-          <button className="flex items-center bg-[#272729] rounded-full px-3 py-1">
+          <button 
+            onClick={handleAwardClick}
+            className="flex items-center bg-[#272729] rounded-full px-3 py-1 mr-2 cursor-pointer"
+          >
+            <AwardIcon type="gold" size={16} className="mr-1" />
+            <span className="text-sm text-gray-400">
+              {awards.length > 0 ? awards.length : 'Award'}
+            </span>
+          </button>
+          
+          <button 
+            onClick={handleShare}
+            className="flex items-center bg-[#272729] rounded-full px-3 py-1 cursor-pointer"
+          >
             <Share2 size={16} className="mr-1 text-gray-500" />
             <span className="text-sm text-gray-400">Share</span>
           </button>
         </div>
       </div>
+      
+      {/* Award selector modal */}
+      <AwardSelector
+        postId={id}
+        isOpen={isAwardSelectorOpen}
+        onClose={() => setIsAwardSelectorOpen(false)}
+        onAwardGiven={handleAwardGiven}
+      />
     </div>
   );
 };

@@ -106,6 +106,36 @@ const PostDetail = ({ post }: PostDetailProps) => {
     router.push(`/r/${post.subredditName}/${post.id}`);
   };
 
+  const handleShare = async () => {
+    // Create the post URL
+    const postUrl = `${window.location.origin}/r/${post.subredditName}/${post.id}`;
+    
+    // Check if the Web Share API is supported
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: post.title,
+          text: `Check out this post on Reddit: ${post.title}`,
+          url: postUrl,
+        });
+        console.log('Post shared successfully');
+      } catch (err) {
+        // User might have canceled the share operation
+        console.log('Share was canceled or failed:', err);
+      }
+    } else {
+      // Fallback for browsers that don't support the Web Share API
+      // Copy the link to clipboard
+      try {
+        await navigator.clipboard.writeText(postUrl);
+        alert('Link copied to clipboard!');
+      } catch (err) {
+        console.error('Failed to copy link:', err);
+        alert('Could not copy link. Please copy it manually: ' + postUrl);
+      }
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-[#121212] text-gray-900 dark:text-white px-4 py-2 rounded-lg mb-4">
       <div className="flex items-center mb-1 py-1">
@@ -113,7 +143,7 @@ const PostDetail = ({ post }: PostDetailProps) => {
           <Link href={`/r/${post.subredditName}`} className="font-medium">r/{post.subredditName}</Link>
           <span className="mx-1">•</span>
           <span>Posted by{" "}
-            <Link href={`/u/${post.authorName}`} className="hover:underline">
+            <Link href={`/user/${post.authorName}`} className="hover:underline">
               u/{post.authorName}
             </Link>
           </span>
@@ -172,7 +202,10 @@ const PostDetail = ({ post }: PostDetailProps) => {
           <span className="text-sm text-gray-600 dark:text-gray-400">Award</span>
         </button>
         
-        <button className="flex items-center bg-gray-100 dark:bg-[#272729] rounded-full px-3 py-1">
+        <button 
+          onClick={handleShare}
+          className="flex items-center bg-gray-100 dark:bg-[#272729] rounded-full px-3 py-1 cursor-pointer"
+        >
           <Share2 size={16} className="mr-1 text-gray-500" />
           <span className="text-sm text-gray-600 dark:text-gray-400">Share</span>
         </button>

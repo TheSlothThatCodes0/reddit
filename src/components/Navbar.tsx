@@ -256,7 +256,7 @@ const Navbar = () => {
                   C
                 </div>
                 <div className="hidden md:flex items-center">
-                  <span className="text-sm font-medium mr-1">curious_mind</span>
+                  <span className="text-sm font-medium mr-1">QuirkyPanda42</span>
                   <ChevronDown size={16} />
                 </div>
               </button>
@@ -264,7 +264,7 @@ const Navbar = () => {
               {userMenuOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700">
                   <Link 
-                    href="/user/curious_mind"
+                    href="/user/QuirkyPanda42"
                     className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <User className="h-4 w-4 mr-2" />
@@ -305,24 +305,13 @@ const Navbar = () => {
           isOpen={isDMOpen} 
           onClose={() => setIsDMOpen(false)}
           recipient={selectedRecipient}
-          currentUser={{ username: 'curious_mind', avatarColor: 'orange' }}
+          currentUser={{ username: 'QuirkyPanda42', avatarColor: 'orange' }}
         />
       )}
     </header>
   );
 };
 
-// Function to get avatar color (same as in UserProfileHeader)
-function getAvatarColor(color: string | undefined): string {
-  switch (color) {
-    case 'red': return '#EF4444';
-    case 'orange': return '#F97316';
-    case 'yellow': return '#EAB308';
-    case 'green': return '#22C55E';
-    case 'blue': return '#3B82F6';
-    case 'purple': return '#A855F7';
-    default: return '#3B82F6'; // Default blue
-  }
-}
+
 
 export default Navbar;
