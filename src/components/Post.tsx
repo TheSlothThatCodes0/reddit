@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowUp, ArrowDown, MessageSquare, Award, Share2, MoreHorizontal } from 'lucide-react';
+import { ArrowUp, ArrowDown, MessageSquare, Share2 } from 'lucide-react';
 
 type PostProps = {
   id: string;
@@ -49,10 +49,9 @@ const Post = ({
   };
 
   return (
-    <>
-      <div className="bg-[#121212] text-white px-4 py-2 rounded-lg">
-
-        <div className="flex items-center mb-1 py-1">
+    <div className="bg-[#121212] text-white rounded-2xl w-full">
+      <div className="px-4 py-3">
+        <div className="flex items-center mb-1">
           <div className="flex items-center text-xs text-gray-400">
             <Link href={`/r/${subredditName}`} className="font-medium">r/{subredditName}</Link>
             <span className="mx-1">•</span>
@@ -71,7 +70,6 @@ const Post = ({
         </Link>
         
         <div className="flex items-center">
-
           <div className="flex items-center bg-[#272729] rounded-full px-2 py-1 mr-2">
             <button 
               className="p-0.5"
@@ -98,22 +96,18 @@ const Post = ({
             </button>
           </div>
           
-
           <button className="flex items-center bg-[#272729] rounded-full px-3 py-1 mr-2">
             <MessageSquare size={16} className="mr-1 text-gray-500" />
             <span className="text-sm text-gray-400">{commentCount}</span>
           </button>
           
-
           <button className="flex items-center bg-[#272729] rounded-full px-3 py-1">
             <Share2 size={16} className="mr-1 text-gray-500" />
             <span className="text-sm text-gray-400">Share</span>
           </button>
         </div>
       </div>
-
-      <div className="h-[1px] bg-[#272729] mt-4"></div>
-    </>
+    </div>
   );
 };
 
