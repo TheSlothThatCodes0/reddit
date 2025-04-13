@@ -5,5 +5,5 @@ export type Comment = {
   authorName: string;
   upvotes: number;
   timePosted: string;
-  replies?: Comment[];
+  replyToId: string | null;  // Make this a required field that can be null
 };

@@ -39,8 +39,8 @@ const PostDetail = ({ post }: PostDetailProps) => {
           <Link href={`/r/${post.subredditName}`} className="font-medium">r/{post.subredditName}</Link>
           <span className="mx-1">•</span>
           <span>Posted by{" "}
-            <Link href={`/u/${post.username}`} className="hover:underline">
-              u/{post.username}
+            <Link href={`/u/${post.authorName}`} className="hover:underline">
+              u/{post.authorName}
             </Link>
           </span>
           <span className="mx-1">•</span>

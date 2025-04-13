@@ -1,20 +1,19 @@
 "use client";
 
 import Post from './Post';
-import { SAMPLE_POSTS } from '@/data/sample-posts';
 import { Post as PostType } from '@/types/post';
 import { Loader2 } from 'lucide-react';
 
 type FeedProps = {
-  feedType?: 'forYou' | 'trending' | string;
-  posts?: PostType[];
+  feedType: 'forYou' | 'trending';
+  posts: PostType[];
   isLoading?: boolean;
   error?: string | null;
 };
 
 const Feed = ({ 
   feedType = 'forYou', 
-  posts = SAMPLE_POSTS,
+  posts = [],
   isLoading = false,
   error = null
 }: FeedProps) => {
@@ -29,9 +28,15 @@ const Feed = ({
         </h1>
         
         {isLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
-            <span className="ml-2 text-gray-500">Loading your feed...</span>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 animate-pulse">
+                <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4"></div>
+                <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+              </div>
+            ))}
           </div>
         ) : error ? (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-center">
@@ -39,19 +44,16 @@ const Feed = ({
           </div>
         ) : posts.length === 0 ? (
           <div className="text-center py-8 bg-white dark:bg-gray-800 rounded-lg">
-            <p className="text-gray-500">No posts found in your feed.</p>
+            <p className="text-gray-500">No posts found.</p>
             <p className="text-sm text-gray-500 mt-2">Try following more subreddits or check back later.</p>
           </div>
         ) : (
           <div className="flex flex-col space-y-4"> 
-            {posts.map((post, index) => {
-              console.log(`Rendering post ${index}:`, post); // Debug each post
-              return (
-                <div className="w-full rounded-xl overflow-hidden" key={post.id || index}> 
-                  <Post {...post} />
-                </div>
-              );
-            })}
+            {posts.map((post) => (
+              <div className="w-full rounded-xl overflow-hidden" key={post.id}> 
+                <Post {...post} />
+              </div>
+            ))}
           </div>
         )}
       </div>

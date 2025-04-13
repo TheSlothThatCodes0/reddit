@@ -1,156 +1,352 @@
 "use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { ArrowUp, ArrowDown, MessageSquare, MoreHorizontal } from 'lucide-react';
-import type { Comment } from '@/types/comment';
+import { useState, useEffect } from "react";
+import { Comment } from "@/types/comment";
+import { ArrowUp, ArrowDown, MessageSquare } from "lucide-react";
+import { createComment, createCommentReply, voteOnComment, getUserVoteOnComment } from "@/lib/supabase/api";
 
-type CommentSectionProps = {
-  comments: Comment[];
-  postId: string;
+type CommentItemProps = {
+  comment: Comment;
+  replies?: Comment[];
+  depth?: number;
 };
 
-const CommentSection = ({ comments, postId }: CommentSectionProps) => {
-  const [newComment, setNewComment] = useState('');
-  const [isCommentBoxOpen, setIsCommentBoxOpen] = useState(false);
+// Individual comment component with support for replies
+const CommentItem = ({ comment, replies = [], depth = 0 }: CommentItemProps) => {
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [voteStatus, setVoteStatus] = useState<'up' | 'down' | null>(null);
+  const [upvotes, setUpvotes] = useState(comment.upvotes);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isVoting, setIsVoting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Load initial vote status
+  useEffect(() => {
+    const loadVoteStatus = async () => {
+      const { voteStatus } = await getUserVoteOnComment(comment.id);
+      setVoteStatus(voteStatus);
+    };
+    
+    loadVoteStatus();
+  }, [comment.id]);
+
+  const handleUpvote = async () => {
+    if (isVoting) return;
+    setIsVoting(true);
+    
+    try {
+      const prevStatus = voteStatus;
+      
+      // Optimistically update UI
+      if (voteStatus === 'up') {
+        setVoteStatus(null);
+        setUpvotes(upvotes - 1);
+      } else {
+        setVoteStatus('up');
+        setUpvotes(voteStatus === 'down' ? upvotes + 2 : upvotes + 1);
+      }
+      
+      // Send to server
+      const { success, error } = await voteOnComment(comment.id, true);
+      
+      if (!success) {
+        // Revert on failure
+        setVoteStatus(prevStatus);
+        setUpvotes(comment.upvotes);
+        console.error("Vote failed:", error);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVoting(false);
+    }
+  };
+
+  const handleDownvote = async () => {
+    if (isVoting) return;
+    setIsVoting(true);
+    
+    try {
+      const prevStatus = voteStatus;
+      
+      // Optimistically update UI
+      if (voteStatus === 'down') {
+        setVoteStatus(null);
+        setUpvotes(upvotes + 1);
+      } else {
+        setVoteStatus('down');
+        setUpvotes(voteStatus === 'up' ? upvotes - 2 : upvotes - 1);
+      }
+      
+      // Send to server
+      const { success, error } = await voteOnComment(comment.id, false);
+      
+      if (!success) {
+        // Revert on failure
+        setVoteStatus(prevStatus);
+        setUpvotes(comment.upvotes);
+        console.error("Vote failed:", error);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsVoting(false);
+    }
+  };
+
+  const handleReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would send the comment to an API
-    alert(`Comment submitted: ${newComment}`);
-    setNewComment('');
-    setIsCommentBoxOpen(false);
+    if (!replyContent.trim()) return;
+    
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      const result = await createCommentReply(
+        comment.postId, 
+        comment.id, 
+        replyContent
+      );
+      
+      if (result.success) {
+        // Successfully created reply
+        setReplyContent("");
+        setIsReplying(false);
+        
+        // Just reload the page without showing an alert
+        setTimeout(() => window.location.reload(), 500);
+      } else {
+        setError(result.error || "Failed to post reply");
+      }
+    } catch (err) {
+      setError("An unexpected error occurred");
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-md shadow-sm overflow-hidden">
-      {/* Comment prompt button */}
-      {!isCommentBoxOpen && (
-        <div
-          className="p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer"
-          onClick={() => setIsCommentBoxOpen(true)}
-        >
-          <div className="flex items-center text-gray-500">
-            <MessageSquare size={16} className="mr-2" />
-            <span>Add a comment</span>
+    <div className={`relative ${depth > 0 ? 'ml-8' : ''}`}>
+      {/* Left border for threaded replies */}
+      {depth > 0 && (
+        <div className="absolute left-[-16px] top-0 bottom-0 w-[2px] bg-gray-700"></div>
+      )}
+      
+      <div className="bg-[#1A1A1B] p-3 rounded-lg mb-2">
+        <div className="flex items-center mb-1">
+          <div className="text-xs text-gray-400">
+            <span className="font-medium text-gray-300">u/{comment.authorName}</span>
+            <span className="mx-1">•</span>
+            <span>{comment.timePosted}</span>
           </div>
         </div>
-      )}
-
-      {/* Comment form */}
-      {isCommentBoxOpen && (
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <form onSubmit={handleSubmit}>
+        
+        <div className="text-sm text-gray-300 mb-2">
+          {comment.content}
+        </div>
+        
+        <div className="flex items-center text-xs text-gray-500">
+          <div className="flex items-center mr-4">
+            <button 
+              onClick={handleUpvote}
+              className="hover:bg-gray-800 p-1 rounded"
+            >
+              <ArrowUp size={14} className={voteStatus === 'up' ? 'text-orange-500' : ''} />
+            </button>
+            <span className="mx-1">{upvotes}</span>
+            <button 
+              onClick={handleDownvote}
+              className="hover:bg-gray-800 p-1 rounded"
+            >
+              <ArrowDown size={14} className={voteStatus === 'down' ? 'text-blue-500' : ''} />
+            </button>
+          </div>
+          
+          <button 
+            onClick={() => setIsReplying(!isReplying)}
+            className="flex items-center hover:bg-gray-800 p-1 rounded"
+            disabled={isSubmitting}
+          >
+            <MessageSquare size={14} className="mr-1" />
+            <span>{isReplying ? 'Cancel' : 'Reply'}</span>
+          </button>
+        </div>
+        
+        {isReplying && (
+          <form onSubmit={handleReplySubmit} className="mt-3">
             <textarea
-              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              rows={4}
-              placeholder="What are your thoughts?"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-            ></textarea>
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              className="w-full p-2 bg-[#272729] text-gray-200 rounded border border-gray-700 focus:outline-none focus:border-blue-500"
+              placeholder={`Reply to ${comment.authorName}...`}
+              rows={3}
+              required
+              disabled={isSubmitting}
+            />
+            {error && (
+              <div className="text-red-500 text-xs mt-1">{error}</div>
+            )}
             <div className="flex justify-end mt-2">
               <button
-                type="submit"
-                className="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 font-medium text-sm"
-                disabled={!newComment.trim()}
+                type="button"
+                onClick={() => setIsReplying(false)}
+                className="px-3 py-1 mr-2 text-xs bg-transparent text-gray-400 hover:bg-gray-800 rounded"
+                disabled={isSubmitting}
               >
-                Comment
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={`px-3 py-1 text-xs bg-blue-500 text-white rounded ${
+                  isSubmitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
+                }`}
+                disabled={isSubmitting || !replyContent.trim()}
+              >
+                {isSubmitting ? 'Posting...' : 'Reply'}
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* Comments list */}
-      <div className="p-4">
-        <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">
-          Comments ({comments.length})
-        </h3>
-        
-        {comments.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
-            No comments yet. Be the first to comment!
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {comments.map((comment) => (
-              <CommentItem key={comment.id} comment={comment} />
-            ))}
-          </div>
         )}
       </div>
+      
+      {/* Render replies */}
+      {replies.length > 0 && (
+        <div className="mt-1">
+          {replies.map((reply) => (
+            <CommentItem 
+              key={reply.id} 
+              comment={reply} 
+              replies={[]} // We don't support multi-level nesting for simplicity
+              depth={depth + 1} 
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
-const CommentItem = ({ comment }: { comment: Comment }) => {
-  const [upvotes, setUpvotes] = useState(comment.upvotes);
-  const [voteStatus, setVoteStatus] = useState<'up' | 'down' | null>(null);
+type CommentSectionProps = {
+  comments: Comment[];
+  postId: string;
+  isLoading?: boolean;
+  error?: string | null;
+};
 
-  const handleUpvote = () => {
-    if (voteStatus === 'up') {
-      setUpvotes(upvotes - 1);
-      setVoteStatus(null);
-    } else {
-      setUpvotes(voteStatus === 'down' ? upvotes + 2 : upvotes + 1);
-      setVoteStatus('up');
-    }
+// Main comment section component
+const CommentSection = ({ comments, postId, isLoading = false, error = null }: CommentSectionProps) => {
+  const [newComment, setNewComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Organize comments into a threaded structure
+  const organizeComments = () => {
+    const topLevelComments: Comment[] = [];
+    const commentReplies: { [key: string]: Comment[] } = {};
+    const existingCommentIds = new Set(comments.map(c => c.id));
+    
+    // First, separate top-level comments from replies
+    comments.forEach(comment => {
+      // A comment is top-level if it has no replyToId OR its parent doesn't exist
+      if (!comment.replyToId || !existingCommentIds.has(comment.replyToId)) {
+        topLevelComments.push(comment);
+      } else {
+        if (!commentReplies[comment.replyToId]) {
+          commentReplies[comment.replyToId] = [];
+        }
+        commentReplies[comment.replyToId].push(comment);
+      }
+    });
+    
+    return { topLevelComments, commentReplies };
   };
-
-  const handleDownvote = () => {
-    if (voteStatus === 'down') {
-      setUpvotes(upvotes + 1);
-      setVoteStatus(null);
-    } else {
-      setUpvotes(voteStatus === 'up' ? upvotes - 2 : upvotes - 1);
-      setVoteStatus('down');
+  
+  const { topLevelComments, commentReplies } = organizeComments();
+  
+  const handleSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+    
+    setIsSubmitting(true);
+    setSubmitError(null);
+    
+    try {
+      const result = await createComment(postId, newComment);
+      
+      if (result.success) {
+        // Successfully created comment
+        setNewComment("");
+        
+        // Just reload the page without showing an alert
+        setTimeout(() => window.location.reload(), 500);
+      } else {
+        setSubmitError(result.error || "Failed to post comment");
+      }
+    } catch (err) {
+      setSubmitError("An unexpected error occurred");
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0 last:pb-0">
-      <div className="flex items-start">
-        <div className="flex items-center mr-2">
-          <div className="flex items-center space-x-1">
-            <button className="vote-button flex items-center" onClick={handleUpvote}>
-              <ArrowUp 
-                size={14} 
-                className={voteStatus === 'up' ? "text-orange-500" : "text-gray-500"} 
-              />
-            </button>
-            <span className="text-xs font-medium">{upvotes}</span>
-            <button className="vote-button flex items-center" onClick={handleDownvote}>
-              <ArrowDown 
-                size={14} 
-                className={voteStatus === 'down' ? "text-blue-500" : "text-gray-500"} 
-              />
-            </button>
-          </div>
+    <div className="mt-6">
+      <h2 className="text-xl font-semibold mb-4 text-gray-100">
+        Comments ({comments.length})
+      </h2>
+      
+      {/* Comment form */}
+      <form onSubmit={handleSubmitComment} className="mb-6">
+        <textarea
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          className="w-full p-3 bg-[#1A1A1B] text-gray-200 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500"
+          placeholder="What are your thoughts?"
+          rows={4}
+          disabled={isSubmitting}
+        />
+        {submitError && (
+          <div className="text-red-500 text-sm mt-1">{submitError}</div>
+        )}
+        <div className="flex justify-end mt-2">
+          <button
+            type="submit"
+            className={`px-4 py-2 bg-blue-500 text-white rounded ${
+              isSubmitting || !newComment.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
+            }`}
+            disabled={isSubmitting || !newComment.trim()}
+          >
+            {isSubmitting ? 'Posting...' : 'Comment'}
+          </button>
         </div>
-
-        <div className="flex-1">
-          <div className="flex items-center mb-1">
-            <Link 
-              href={`/u/${comment.username}`} 
-              className="text-xs font-medium text-gray-900 dark:text-gray-300 hover:underline mr-2"
-            >
-              u/{comment.username}
-            </Link>
-            <span className="text-xs text-gray-500">• {comment.timePosted}</span>
+      </form>
+      
+      {/* Comments list */}
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
           </div>
-          <div className="text-gray-800 dark:text-gray-300 text-sm">
-            {comment.content}
+        ) : error ? (
+          <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 text-center">
+            <p className="text-red-400">{error}</p>
           </div>
-          <div className="mt-2 flex text-xs text-gray-500">
-            <button className="flex items-center mr-4 hover:text-gray-700 dark:hover:text-gray-300">
-              <MessageSquare size={12} className="mr-1" />
-              <span>Reply</span>
-            </button>
-            <button className="flex items-center hover:text-gray-700 dark:hover:text-gray-300">
-              <MoreHorizontal size={14} className="text-gray-500" />
-            </button>
+        ) : topLevelComments.length > 0 ? (
+          topLevelComments.map(comment => (
+            <CommentItem 
+              key={comment.id} 
+              comment={comment} 
+              replies={commentReplies[comment.id] || []} 
+            />
+          ))
+        ) : (
+          <div className="text-center py-8 bg-[#1A1A1B] rounded-lg">
+            <p className="text-gray-400">No comments yet. Be the first to comment!</p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
