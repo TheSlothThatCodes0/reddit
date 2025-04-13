@@ -57,7 +57,7 @@ export default function SubredditPage({ params }: { params: { subreddit: string 
       
       // Format subreddit info for components
       const formattedSubreddit: SubredditInfo = {
-        id: String(params.subreddit),
+        id: subreddit.id, // Keep the numeric ID for subscription functions
         name: String(subreddit.name),
         members: String(subreddit.memberCount),
         createdAt: String(subreddit.createdAt),

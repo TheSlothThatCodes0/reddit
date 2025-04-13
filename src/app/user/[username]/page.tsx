@@ -5,7 +5,7 @@ import UserContentTabs from '@/components/UserContentTabs';
 
 import { USER_PROFILES } from '@/data/user-profiles';
 import { SAMPLE_POSTS } from '@/data/sample-posts';
-import { SAMPLE_COMMENTS } from '@/data/sample-comments';
+// import { SAMPLE_COMMENTS } from '@/data/sample-comments';
 
 export default function UserProfilePage({ params }: { params: { username: string } }) {
   const username = params.username;

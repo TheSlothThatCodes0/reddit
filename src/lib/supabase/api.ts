@@ -780,7 +780,7 @@ export async function getSubredditByName(subredditName: string): Promise<Subredd
     
     return {
       subreddit: {
-        id: Number(subredditData.subreddit_id),
+        id: Number(subredditData.subreddit_id), // Keep as number for use with the subscription API
         name: String(subredditData.subreddit_name),
         description: subredditData.description ? String(subredditData.description) : null,
         createdAt: formatDate(String(subredditData.created_at)),
@@ -867,6 +867,299 @@ export async function getSubredditPostsByName(
       posts: [], 
       error: "Failed to load posts. Please try again later." 
     } as SubredditPostsApiResponse;
+  }
+}
+
+/**
+ * Search for subreddits by name
+ */
+export async function searchSubreddits(query: string, limit: number = 5): Promise<{
+  subreddits: Array<{
+    id: number;
+    name: string;
+    description: string | null;
+    memberCount: number;
+  }>;
+  error: string | null;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    if (!query || query.trim() === '') {
+      // Return popular communities instead if no query
+      const { communities, error } = await getPopularCommunities(limit);
+      if (error) {
+        return { subreddits: [], error };
+      }
+      
+      return { 
+        subreddits: communities.map(c => ({
+          id: c.id,
+          name: c.name,
+          description: null,
+          memberCount: c.memberCount
+        })), 
+        error: null 
+      };
+    }
+    
+    const { data, error } = await supabase.rpc('search_subreddits', {
+      search_query: String(query).trim(),
+      max_results: Number(limit)
+    });
+    
+    if (error) {
+      console.error("Error searching subreddits:", error);
+      return { subreddits: [], error: error.message };
+    }
+    
+    const subreddits = (data || []).map(item => ({
+      id: Number(item.subreddit_id),
+      name: String(item.subreddit_name),
+      description: item.description ? String(item.description) : null,
+      memberCount: Number(item.member_count) || 0
+    }));
+    
+    return { subreddits, error: null };
+  } catch (err: any) {
+    console.error("Exception searching subreddits:", err);
+    return { subreddits: [], error: "Failed to search communities" };
+  }
+}
+
+/**
+ * Creates a new post
+ */
+export async function createPost(
+  title: string,
+  content: string,
+  subredditId: number,
+  userId: number = 1 // Default for development
+): Promise<{
+  success: boolean;
+  postId?: string;
+  error?: string;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // Create JSON content object
+    const contentObject = { text: content };
+    
+    // Insert post
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({
+        title: title,
+        content: contentObject,
+        "userID": userId,
+        "subredditID": subredditId
+      })
+      .select('id')
+      .single();
+      
+    if (error) {
+      console.error("Error creating post:", error);
+      return { success: false, error: error.message };
+    }
+    
+    return { 
+      success: true,
+      postId: data.id
+    };
+    
+  } catch (err: any) {
+    console.error("Exception creating post:", err);
+    return { success: false, error: "Failed to create post. Please try again." };
+  }
+}
+
+/**
+ * Creates a new subreddit
+ */
+export async function createSubreddit(
+  name: string,
+  description: string,
+  isPrivate: boolean = false,
+  userId: number = 1 // Default for development
+): Promise<{
+  success: boolean;
+  subreddit?: {
+    id: number;
+    name: string;
+  };
+  error?: string;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // Create subreddit
+    const { data, error } = await supabase.rpc('create_subreddit', {
+      p_subreddit_name: name,
+      p_description: description,
+      p_is_private: isPrivate,
+      p_user_id: userId
+    });
+    
+    if (error) {
+      console.error("Error creating subreddit:", error);
+      
+      // Check for duplicate key violation
+      if (error.message.includes('duplicate key')) {
+        return { 
+          success: false, 
+          error: `Subreddit r/${name} already exists.` 
+        };
+      }
+      
+      return { 
+        success: false, 
+        error: error.message 
+      };
+    }
+    
+    if (!data || data.length === 0) {
+      return { 
+        success: false, 
+        error: "Failed to create subreddit for unknown reason."
+      };
+    }
+    
+    const createdSubreddit = data[0];
+    
+    return {
+      success: true,
+      subreddit: {
+        id: createdSubreddit.subreddit_id,
+        name: createdSubreddit.subreddit_name
+      }
+    };
+    
+  } catch (err: any) {
+    console.error("Exception creating subreddit:", err);
+    return { 
+      success: false, 
+      error: "Failed to create subreddit. Please try again."
+    };
+  }
+}
+
+/**
+ * Check if a user is subscribed to a subreddit
+ */
+export async function isSubscribed(
+  subredditId: number,
+  userId: number = 1 // Default for development
+): Promise<{
+  isSubscribed: boolean;
+  error: string | null;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    const { data, error } = await supabase
+      .from('subscription')
+      .select('*')
+      .eq('subredditID', subredditId)
+      .eq('userID', userId)
+      .maybeSingle();
+      
+    if (error) {
+      console.error("Error checking subscription:", error);
+      return { isSubscribed: false, error: error.message };
+    }
+    
+    return { 
+      isSubscribed: !!data, 
+      error: null 
+    };
+    
+  } catch (err: any) {
+    console.error("Exception checking subscription:", err);
+    return { isSubscribed: false, error: "Failed to check subscription status" };
+  }
+}
+
+/**
+ * Subscribe to a subreddit
+ */
+export async function subscribeToSubreddit(
+  subredditId: number,
+  userId: number = 1 // Default for development
+): Promise<{
+  success: boolean;
+  error: string | null;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // Check if already subscribed directly (avoiding circular reference)
+    const { data: existingSubscription, error: checkError } = await supabase
+      .from('subscription')
+      .select('*')
+      .eq('subredditID', subredditId)
+      .eq('userID', userId)
+      .maybeSingle();
+    
+    if (checkError) {
+      return { success: false, error: checkError.message };
+    }
+    
+    // If already subscribed, return success
+    if (existingSubscription) {
+      return { success: true, error: null };
+    }
+    
+    // Create a new subscription
+    const { error } = await supabase
+      .from('subscription')
+      .insert({
+        subredditID: subredditId,
+        userID: userId,
+      });
+      
+    if (error) {
+      console.error("Error subscribing to subreddit:", error);
+      return { success: false, error: error.message };
+    }
+    
+    return { success: true, error: null };
+    
+  } catch (err: any) {
+    console.error("Exception subscribing to subreddit:", err);
+    return { success: false, error: "Failed to join community" };
+  }
+}
+
+/**
+ * Unsubscribe from a subreddit
+ */
+export async function unsubscribeFromSubreddit(
+  subredditId: number,
+  userId: number = 1 // Default for development
+): Promise<{
+  success: boolean;
+  error: string | null;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    const { error } = await supabase
+      .from('subscription')
+      .delete()
+      .eq('subredditID', subredditId)
+      .eq('userID', userId);
+      
+    if (error) {
+      console.error("Error unsubscribing from subreddit:", error);
+      return { success: false, error: error.message };
+    }
+    
+    return { success: true, error: null };
+    
+  } catch (err: any) {
+    console.error("Exception unsubscribing from subreddit:", err);
+    return { success: false, error: "Failed to leave community" };
   }
 }
 

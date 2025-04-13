@@ -1,5 +1,5 @@
 export type SubredditInfo = {
-  id: string;
+  id: string | number; // Allow both string and number types for ID
   name: string;
   members: string;
   activeMembers?: string;
