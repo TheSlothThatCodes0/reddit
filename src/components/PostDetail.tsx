@@ -1,18 +1,36 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowUp, ArrowDown, MessageSquare, Award, Share2, MoreHorizontal } from 'lucide-react';
+import { ArrowUp, ArrowDown, MessageSquare, Award, Share2 } from 'lucide-react';
 import { Post as PostType } from '@/types/post';
+import { voteOnPost, getUserVoteOnPost } from '@/lib/supabase/api';
 
 type PostDetailProps = {
   post: PostType;
 };
 
 const PostDetail = ({ post }: PostDetailProps) => {
+  const router = useRouter();
   const [voteStatus, setVoteStatus] = useState<'up' | 'down' | null>(null);
   const [upvotes, setUpvotes] = useState(post.upvotes);
+  const [isVoting, setIsVoting] = useState(false);
 
-  const handleUpvote = () => {
+  // Fetch the user's current vote status when component mounts
+  useEffect(() => {
+    const fetchVoteStatus = async () => {
+      const { voteStatus: currentVote } = await getUserVoteOnPost(post.id);
+      setVoteStatus(currentVote);
+    };
+    
+    fetchVoteStatus();
+  }, [post.id]);
+
+  const handleUpvote = async () => {
+    if (isVoting) return;
+    setIsVoting(true);
+    
+    // Optimistic UI update
     if (voteStatus === 'up') {
       setVoteStatus(null);
       setUpvotes(upvotes - 1);
@@ -20,9 +38,37 @@ const PostDetail = ({ post }: PostDetailProps) => {
       setVoteStatus('up');
       setUpvotes(voteStatus === 'down' ? upvotes + 2 : upvotes + 1);
     }
+    
+    try {
+      // Send vote to database
+      const { success, error } = await voteOnPost(post.id, true);
+      
+      if (!success && error) {
+        // Revert optimistic update if error occurs
+        console.error("Failed to register upvote:", error);
+        if (voteStatus === 'up') {
+          setVoteStatus('up');
+          setUpvotes(upvotes);
+        } else if (voteStatus === 'down') {
+          setVoteStatus('down');
+          setUpvotes(upvotes - 2);
+        } else {
+          setVoteStatus(null);
+          setUpvotes(upvotes - 1);
+        }
+      }
+    } catch (err) {
+      console.error("Error during upvote:", err);
+    } finally {
+      setIsVoting(false);
+    }
   };
 
-  const handleDownvote = () => {
+  const handleDownvote = async () => {
+    if (isVoting) return;
+    setIsVoting(true);
+    
+    // Optimistic UI update
     if (voteStatus === 'down') {
       setVoteStatus(null);
       setUpvotes(upvotes + 1);
@@ -30,6 +76,34 @@ const PostDetail = ({ post }: PostDetailProps) => {
       setVoteStatus('down');
       setUpvotes(voteStatus === 'up' ? upvotes - 2 : upvotes - 1);
     }
+    
+    try {
+      // Send vote to database
+      const { success, error } = await voteOnPost(post.id, false);
+      
+      if (!success && error) {
+        // Revert optimistic update if error occurs
+        console.error("Failed to register downvote:", error);
+        if (voteStatus === 'down') {
+          setVoteStatus('down');
+          setUpvotes(upvotes);
+        } else if (voteStatus === 'up') {
+          setVoteStatus('up'); 
+          setUpvotes(upvotes + 2);
+        } else {
+          setVoteStatus(null);
+          setUpvotes(upvotes + 1);
+        }
+      }
+    } catch (err) {
+      console.error("Error during downvote:", err);
+    } finally {
+      setIsVoting(false);
+    }
+  };
+
+  const handleCommentClick = () => {
+    router.push(`/r/${post.subredditName}/${post.id}`);
   };
 
   return (
@@ -61,29 +135,34 @@ const PostDetail = ({ post }: PostDetailProps) => {
           <button 
             className="p-0.5"
             onClick={handleUpvote}
+            disabled={isVoting}
           >
             <ArrowUp 
               size={18} 
-              className={voteStatus === 'up' 
+              className={`${isVoting ? 'opacity-50' : ''} ${voteStatus === 'up' 
                 ? "text-orange-500" 
-                : "text-gray-500"} 
+                : "text-gray-500"}`} 
             />
           </button>
           <span className="mx-1 text-sm font-medium">{upvotes}</span>
           <button 
             className="p-0.5"
             onClick={handleDownvote}
+            disabled={isVoting}
           >
             <ArrowDown 
               size={18} 
-              className={voteStatus === 'down' 
+              className={`${isVoting ? 'opacity-50' : ''} ${voteStatus === 'down' 
                 ? "text-blue-500" 
-                : "text-gray-500"} 
+                : "text-gray-500"}`} 
             />
           </button>
         </div>
         
-        <button className="flex items-center bg-gray-100 dark:bg-[#272729] rounded-full px-3 py-1 mr-2">
+        <button 
+          className="flex items-center bg-gray-100 dark:bg-[#272729] rounded-full px-3 py-1 mr-2"
+          onClick={handleCommentClick}
+        >
           <MessageSquare size={16} className="mr-1 text-gray-500" />
           <span className="text-sm text-gray-600 dark:text-gray-400">{post.commentCount}</span>
         </button>

@@ -414,7 +414,7 @@ export async function voteOnPost(
       .select('*')
       .eq('userID', userId)
       .eq('postID', postId)
-      .is('commentID', null)
+      .is('commentID', null)  // Make sure this is explicitly NULL to ensure we're only checking post votes
       .maybeSingle();
       
     if (checkError) {
@@ -429,14 +429,19 @@ export async function voteOnPost(
         .delete()
         .eq('userID', userId)
         .eq('postID', postId)
-        .is('commentID', null);
+        .is('commentID', null); // Again, ensure we're only affecting post votes
         
       if (deleteError) {
         console.error("Error removing vote:", deleteError);
         return { success: false, error: deleteError.message };
       }
       
-      return { success: true };
+      // After successful deletion, we need to force a refresh of the UI
+      return { 
+        success: true,
+        // Add a timestamp to help the caller know this is a fresh response
+        timestamp: Date.now()
+      };
     }
     
     // If user already voted but is changing vote type (upvote ↔ downvote)
@@ -453,7 +458,10 @@ export async function voteOnPost(
         return { success: false, error: updateError.message };
       }
       
-      return { success: true };
+      return { 
+        success: true,
+        timestamp: Date.now()
+      };
     }
     
     // If no existing vote, insert a new one
@@ -471,7 +479,10 @@ export async function voteOnPost(
       return { success: false, error: insertError.message };
     }
     
-    return { success: true };
+    return { 
+      success: true,
+      timestamp: Date.now()
+    };
     
   } catch (err: any) {
     console.error("Exception while voting on post:", err);
@@ -708,6 +719,154 @@ export async function getPopularCommunities(limit: number = 8): Promise<{
   } catch (err: any) {
     console.error("Exception fetching popular communities:", err);
     return { communities: [], error: "Failed to load popular communities" };
+  }
+}
+
+/**
+ * Sort options for subreddit posts
+ */
+export type PostSortOption = 'new' | 'top' | 'trending';
+
+/**
+ * Type for Subreddit information returned by the API
+ */
+export type SubredditApiResponse = {
+  subreddit: {
+    id: number;
+    name: string;
+    description: string | null;
+    createdAt: string;
+    memberCount: number;
+    isPrivate: boolean;
+  } | null;
+  error: string | null;
+}
+
+/**
+ * Type for Subreddit Posts returned by the API
+ */
+export type SubredditPostsApiResponse = {
+  posts: Post[];
+  error: string | null;
+}
+
+/**
+ * Fetches information about a subreddit by name
+ */
+export async function getSubredditByName(subredditName: string): Promise<SubredditApiResponse> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    const { data, error } = await supabase.rpc('get_subreddit_by_name', {
+      p_subreddit_name: subredditName
+    });
+    
+    if (error) {
+      console.error("Error fetching subreddit info:", error);
+      return { 
+        subreddit: null, 
+        error: error.message 
+      } as SubredditApiResponse;
+    }
+    
+    if (!data || data.length === 0) {
+      return { 
+        subreddit: null, 
+        error: `Subreddit r/${subredditName} not found` 
+      } as SubredditApiResponse;
+    }
+    
+    const subredditData = data[0];
+    
+    return {
+      subreddit: {
+        id: Number(subredditData.subreddit_id),
+        name: String(subredditData.subreddit_name),
+        description: subredditData.description ? String(subredditData.description) : null,
+        createdAt: formatDate(String(subredditData.created_at)),
+        memberCount: Number(subredditData.member_count) || 0,
+        isPrivate: Boolean(subredditData.is_private)
+      },
+      error: null
+    } as SubredditApiResponse;
+  } catch (err: any) {
+    console.error("Exception fetching subreddit:", err);
+    return { 
+      subreddit: null, 
+      error: "Failed to load subreddit information" 
+    } as SubredditApiResponse;
+  }
+}
+
+/**
+ * Fetches posts for a specific subreddit with sorting options
+ */
+export async function getSubredditPostsByName(
+  subredditName: string,
+  sortBy: PostSortOption = 'new',
+  limit: number = 20,
+  offset: number = 0
+): Promise<SubredditPostsApiResponse> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    const { data, error } = await supabase.rpc('get_subreddit_posts', {
+      p_subreddit_name: String(subredditName),
+      p_sort_by: String(sortBy),
+      p_limit: Number(limit),
+      p_offset: Number(offset)
+    });
+    
+    if (error) {
+      console.error("Error fetching subreddit posts:", error);
+      return { 
+        posts: [], 
+        error: error.message 
+      } as SubredditPostsApiResponse;
+    }
+    
+    // Add a cache-busting key to prevent React from reusing stale data
+    const cacheKey = Date.now();
+    
+    const transformedPosts: Post[] = (data || []).map(post => {
+      // Extract content safely
+      let contentText: string = '';
+      if (post.content) {
+        if (typeof post.content === 'string') {
+          try {
+            const parsed = JSON.parse(String(post.content));
+            contentText = parsed.text ? String(parsed.text) : '';
+          } catch {
+            contentText = String(post.content);
+          }
+        } else if (typeof post.content === 'object') {
+          contentText = post.content.text ? String(post.content.text) : JSON.stringify(post.content);
+        }
+      }
+      
+      return {
+        id: String(post.id),
+        title: post.title ? String(post.title) : 'Untitled',
+        content: contentText,
+        upvotes: Number(post.vote_score) || 0,
+        commentCount: Number(post.comment_count) || 0,
+        subredditName: String(subredditName),
+        authorName: post.author_name ? String(post.author_name) : 'anonymous',
+        timePosted: post.created_at ? formatDate(String(post.created_at)) : 'unknown date',
+        _cacheKey: cacheKey // Add a cache key to prevent stale data issues
+      } as unknown as Post; // Use unknown cast to handle the additional property
+    });
+    
+    return { 
+      posts: transformedPosts, 
+      error: null 
+    } as SubredditPostsApiResponse;
+  } catch (err: any) {
+    console.error("Exception fetching subreddit posts:", err);
+    return { 
+      posts: [], 
+      error: "Failed to load posts. Please try again later." 
+    } as SubredditPostsApiResponse;
   }
 }
 
