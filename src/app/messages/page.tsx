@@ -14,6 +14,11 @@ import {
   ConversationSummary
 } from '@/lib/supabase/api';
 
+// Extended DirectMessage type with tempId for optimistic updates
+interface ExtendedDirectMessage extends DirectMessage {
+  tempId?: string;
+}
+
 export default function MessagesPage() {
   const searchParams = useSearchParams();
   const userFromURL = searchParams.get('user');
@@ -21,7 +26,7 @@ export default function MessagesPage() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [selectedUser, setSelectedUser] = useState<string | null>(userFromURL);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const [messages, setMessages] = useState<ExtendedDirectMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -93,7 +98,7 @@ export default function MessagesPage() {
   // Load messages when a user is selected - add proper error handling
   useEffect(() => {
     let isMounted = true;
-    let timeoutId = null;
+    let timeoutId: NodeJS.Timeout | null = null;
     
     async function loadMessages() {
       if (!selectedUser || !selectedUserId) return;
@@ -157,7 +162,7 @@ export default function MessagesPage() {
     
     // Create optimistic update with temporary ID
     const tempId = `temp-${Date.now()}`;
-    const optimisticMessage = {
+    const optimisticMessage: ExtendedDirectMessage = {
       tempId,
       content: messageText,
       read: true,
@@ -183,17 +188,20 @@ export default function MessagesPage() {
         setMessages(msgs => msgs.filter(m => m.tempId !== tempId));
       } else {
         // Update the temporary message with the real message ID
-        setMessages(msgs => msgs.map(m => 
-          m.tempId === tempId 
-            ? { ...m, messageID: messageId, tempId: undefined } 
-            : m
-        ));
+        setMessages(msgs => msgs.map(m => {
+          if ('tempId' in m && m.tempId === tempId) {
+            // Create a new object without the tempId property
+            const { tempId, ...rest } = m;
+            return { ...rest, messageID: messageId };
+          }
+          return m;
+        }));
       }
     } catch (err: any) {
       console.error("Exception sending message:", err);
       setError("An unexpected error occurred");
       // Remove the optimistic message
-      setMessages(msgs => msgs.filter(m => m.tempId !== tempId));
+      setMessages(msgs => msgs.filter(m => 'tempId' in m ? m.tempId !== tempId : true));
     } finally {
       setIsSending(false);
     }
@@ -317,7 +325,7 @@ export default function MessagesPage() {
                     <div className="space-y-3">
                       {messages.map((msg, index) => (
                         <div 
-                          key={msg.tempId || msg.messageID || `temp-${index}`}
+                          key={('tempId' in msg && msg.tempId) || msg.messageID || `msg-${index}`}
                           className={`flex ${msg.senderID === currentUserId ? 'justify-end' : 'justify-start'}`}
                         >
                           <div 

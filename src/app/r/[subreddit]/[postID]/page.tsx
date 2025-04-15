@@ -3,16 +3,24 @@
 import { useEffect, useState } from 'react';
 import { notFound } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
-import PostDetail from '@/components/PostDetail'; // Use existing component
+import PostDetail from '@/components/PostDetail';
 import { getPostById, getPostComments } from '@/lib/supabase/api';
-import { Comment } from '@/types/comment';
+import type { Comment } from '@/types/comment'; // Use type import to avoid collision
 import { Post } from '@/types/post';
 import CommentSection from '@/components/CommentSection';
 import PopularPosts from '@/components/PopularPosts';
 
-export default function PostPage({ params }: { params: { subreddit: string; postID: string } }) {
+interface PostPageProps {
+  params: {
+    subreddit: string;
+    postID: string;
+  }
+}
+
+export default function PostPage({ params }: PostPageProps) {
   const [post, setPost] = useState<Post | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
+  // Explicitly define the Comment type to avoid collision with DOM's Comment type
+  const [comments, setComments] = useState<Array<Comment>>([]);
   const [isLoadingPost, setIsLoadingPost] = useState(true);
   const [isLoadingComments, setIsLoadingComments] = useState(true);
   const [postError, setPostError] = useState<string | null>(null);
@@ -42,7 +50,8 @@ export default function PostPage({ params }: { params: { subreddit: string; post
       if (error) {
         setCommentsError(error);
       } else {
-        setComments(commentsData);
+        // Cast to make sure we're using the correct Comment type
+        setComments(commentsData as Array<Comment>);
       }
       
       setIsLoadingComments(false);

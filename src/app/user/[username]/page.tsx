@@ -9,7 +9,13 @@ import { getUserProfileByUsername, getUserPosts, getUserComments } from '@/lib/s
 import { UserProfile } from '@/types/user-profile';
 import { Post } from '@/types/post';
 
-export default function UserProfilePage({ params }: { params: { username: string } }) {
+interface UserProfilePageProps {
+  params: {
+    username: string;
+  }
+}
+
+export default function UserProfilePage({ params }: UserProfilePageProps) {
   const username = params.username;
   
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);

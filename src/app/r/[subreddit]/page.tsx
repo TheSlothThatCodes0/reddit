@@ -9,13 +9,19 @@ import { getSubredditByName, getSubredditPostsByName, PostSortOption } from '@/l
 import { Post } from '@/types/post';
 import { SubredditInfo } from '@/types/subreddit';
 
-export default function SubredditPage({ params }: { params: { subreddit: string } }) {
+interface SubredditPageProps {
+  params: {
+    subreddit: string;
+  }
+}
+
+export default function SubredditPage({ params }: SubredditPageProps) {
   const [subredditInfo, setSubredditInfo] = useState<SubredditInfo | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [sortBy, setSortBy] = useState<PostSortOption>('new');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState<number>(0); // Add refresh key to force rerenders
+  const [refreshKey, setRefreshKey] = useState<number>(0);
   
   // Function to fetch posts with explicit type handling
   const fetchPosts = useCallback(async (subredditName: string, sort: PostSortOption) => {

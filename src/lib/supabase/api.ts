@@ -1,5 +1,6 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { SupabaseFeedPost, Post } from "@/types/post";
+import type { Comment } from '@/types/comment'; // Add this import at the top with other imports
 
 // Create a shared Supabase client
 const getSupabaseClient = () => createClientComponentClient();
@@ -236,7 +237,7 @@ export async function getPostComments(postId: string): Promise<{
     console.log("Raw comments data:", data);
     
     // Transform the comments to match our Comment type
-    const transformedComments = data.map((comment: any) => {
+    const transformedComments: Comment[] = data.map((comment: any) => {
       return {
         id: comment.id,
         postId: comment.postid,
@@ -1740,8 +1741,8 @@ function formatRelativeTime(dateString: string): string {
     // Choose the appropriate time unit
     if (diffSeconds < 60) return `${diffSeconds} ${diffSeconds === 1 ? 'second' : 'seconds'} ago`;
     if (diffMinutes < 60) return `${diffMinutes} ${diffMinutes === 1 ? 'minute' : 'minutes'} ago`;
-    if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
-    if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+    if (diffHours < 24) return `${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    if (diffDays < 7) return `${diffDays === 1 ? 'day' : 'days'} ago`;
     
     // If older than a week, use standard date format
     return formatDate(dateString);

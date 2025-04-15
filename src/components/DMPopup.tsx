@@ -4,6 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Send } from 'lucide-react';
 import { sendDirectMessage, getUserIdByUsername, DirectMessage } from '@/lib/supabase/api';
 
+// Extended DirectMessage type with tempId for optimistic updates
+interface ExtendedDirectMessage extends DirectMessage {
+  tempId?: string;
+}
+
 type DMPopupProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -19,7 +24,7 @@ type DMPopupProps = {
 
 const DMPopup = ({ isOpen, onClose, recipient, currentUser }: DMPopupProps) => {
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const [messages, setMessages] = useState<ExtendedDirectMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +70,7 @@ const DMPopup = ({ isOpen, onClose, recipient, currentUser }: DMPopupProps) => {
     
     // Create temporary message object for UI
     const tempId = `temp-${Date.now()}`;
-    const optimisticMessage = {
+    const optimisticMessage: ExtendedDirectMessage = {
       tempId: tempId,
       content: currentMessageText,
       read: true, // It's read since current user is sending it
@@ -91,21 +96,24 @@ const DMPopup = ({ isOpen, onClose, recipient, currentUser }: DMPopupProps) => {
         console.error("Failed to send message:", error);
         
         // Remove the optimistic message on failure
-        setMessages(prev => prev.filter(msg => msg.tempId !== tempId));
+        setMessages(prev => prev.filter(msg => 'tempId' in msg ? msg.tempId !== tempId : true));
       } else {
         // Update the temporary message with the real message ID and correct timestamp
-        setMessages(prev => prev.map(msg => 
-          msg.tempId === tempId 
-            ? { ...msg, messageID: messageId, tempId: undefined, sentAt: 'Just now' } 
-            : msg
-        ));
+        setMessages(prev => prev.map(msg => {
+          if ('tempId' in msg && msg.tempId === tempId) {
+            // Create a new object without the tempId property
+            const { tempId, ...rest } = msg;
+            return { ...rest, messageID: messageId, sentAt: 'Just now' };
+          }
+          return msg;
+        }));
       }
     } catch (err: any) {
       setError(err.message || "Failed to send message");
       console.error("Exception sending message:", err);
       
       // Remove the optimistic message on error
-      setMessages(prev => prev.filter(msg => msg.tempId !== tempId));
+      setMessages(prev => prev.filter(msg => 'tempId' in msg ? msg.tempId !== tempId : true));
     } finally {
       setIsSending(false);
     }
@@ -158,7 +166,7 @@ const DMPopup = ({ isOpen, onClose, recipient, currentUser }: DMPopupProps) => {
           <div className="space-y-3">
             {messages.map((msg, index) => (
               <div 
-                key={msg.tempId || msg.messageID || `msg-${index}`}
+                key={('tempId' in msg && msg.tempId) || msg.messageID || `msg-${index}`}
                 className={`flex ${msg.senderName === currentUser.username ? 'justify-end' : 'justify-start'}`}
               >
                 <div 
