@@ -4,11 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowUp, ArrowDown, MessageSquare, Share2 } from 'lucide-react';
-import { voteOnPost, getUserVoteOnPost } from '@/lib/supabase/api';
+import { voteOnPost, getUserVoteOnPost, getPostAwards, giveAward, AwardType } from '@/lib/supabase/api';
 import AwardIcon from './AwardIcon';
 import AwardSelector from './AwardSelector';
-
-type AwardType = 'bronze' | 'silver' | 'gold' | 'diamond';
 
 type PostProps = {
   id: string;
@@ -35,8 +33,8 @@ const Post = ({
   const [upvotes, setUpvotes] = useState(initialUpvotes);
   const [isVoting, setIsVoting] = useState(false);
   const [isAwardSelectorOpen, setIsAwardSelectorOpen] = useState(false);
-  // Mock state for awards - in a real app, these would come from an API
   const [awards, setAwards] = useState<AwardType[]>([]);
+  const [isLoadingAwards, setIsLoadingAwards] = useState(false);
   const router = useRouter();
 
   // Load initial vote status
@@ -47,6 +45,18 @@ const Post = ({
     };
     
     loadVoteStatus();
+  }, [id]);
+  
+  // Load awards for the post
+  useEffect(() => {
+    const loadAwards = async () => {
+      setIsLoadingAwards(true);
+      const { awards: postAwards } = await getPostAwards(id);
+      setAwards(postAwards);
+      setIsLoadingAwards(false);
+    };
+    
+    loadAwards();
   }, [id]);
 
   const handleUpvote = async (e: React.MouseEvent) => {
@@ -161,8 +171,7 @@ const Post = ({
   };
 
   const handleAwardGiven = (awardType: AwardType) => {
-    // In a real app, this would call an API and then refresh the awards
-    // For now, we'll just update the local state
+    // Update the local state with the new award
     setAwards([...awards, awardType]);
   };
 
@@ -196,6 +205,11 @@ const Post = ({
                   {/* If there are more than 3 award types, show a count */}
                   {new Set(awards).size > 3 && (
                     <span className="text-xs text-gray-400 ml-1">+{new Set(awards).size - 3}</span>
+                  )}
+                  
+                  {/* Show total award count */}
+                  {awards.length > new Set(awards).size && (
+                    <span className="text-xs text-gray-400 ml-1">{awards.length}</span>
                   )}
                 </div>
               </>

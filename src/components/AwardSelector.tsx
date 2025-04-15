@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import AwardIcon from './AwardIcon';
-
-type AwardType = 'bronze' | 'silver' | 'gold' | 'diamond';
+import { giveAward, AwardType } from '@/lib/supabase/api';
 
 type AwardSelectorProps = {
   postId: string;
@@ -47,13 +46,35 @@ const awards: AwardOption[] = [
 
 const AwardSelector = ({ postId, isOpen, onClose, onAwardGiven }: AwardSelectorProps) => {
   const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   if (!isOpen) return null;
   
-  const handleAwardClick = (award: AwardOption) => {
-    // In a real implementation, we would call an API here
-    onAwardGiven(award.type);
-    onClose();
+  const handleAwardClick = async (award: AwardOption) => {
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      const { success, error } = await giveAward(
+        award.type, 
+        postId, 
+        undefined, // Not a comment
+        message
+      );
+      
+      if (success) {
+        onAwardGiven(award.type);
+        onClose();
+      } else {
+        setError(error || "Failed to give award. Please try again.");
+      }
+    } catch (err) {
+      setError("An unexpected error occurred");
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   return (
@@ -64,18 +85,28 @@ const AwardSelector = ({ postId, isOpen, onClose, onAwardGiven }: AwardSelectorP
           <button 
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+            disabled={isSubmitting}
           >
             <X size={20} />
           </button>
         </div>
         
         <div className="p-4">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-900 rounded-md text-red-600 dark:text-red-400">
+              {error}
+            </div>
+          )}
+          
           <div className="space-y-4">
             {awards.map((award) => (
               <button
                 key={award.type}
                 onClick={() => handleAwardClick(award)}
-                className="w-full flex items-center p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors dark:border-gray-700 cursor-pointer"
+                disabled={isSubmitting}
+                className={`w-full flex items-center p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors dark:border-gray-700 cursor-pointer ${
+                  isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 mr-3">
                   <AwardIcon type={award.type} size={24} />
@@ -98,6 +129,7 @@ const AwardSelector = ({ postId, isOpen, onClose, onAwardGiven }: AwardSelectorP
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
+              disabled={isSubmitting}
               className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="Say something nice..."
               rows={2}

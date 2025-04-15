@@ -1359,6 +1359,8 @@ function getRandomColorForUser(username: string): string {
   
   // Create a simple hash of the username
   let hash = 0;
+  // FIX: The loop condition should be i < username.length, not username.length by itself
+  // This was causing an infinite loop
   for (let i = 0; i < username.length; i++) {
     hash = ((hash << 5) - hash) + username.charCodeAt(i);
     hash |= 0; // Convert to 32bit integer
@@ -1367,6 +1369,386 @@ function getRandomColorForUser(username: string): string {
   // Use the hash to pick a consistent color
   const colorIndex = Math.abs(hash) % colors.length;
   return colors[colorIndex];
+}
+
+// Award type definition
+export type AwardType = 'bronze' | 'silver' | 'gold' | 'diamond';
+
+// Type for Award data
+export type Award = {
+  id: number;
+  type: AwardType;
+  userId: number;
+  postId?: string;
+  commentId?: string;
+  message?: string;
+  createdAt: string;
+};
+
+// Available award types with their IDs from the award table
+const AWARD_IDS = {
+  bronze: 1,
+  silver: 2,
+  gold: 3,
+  diamond: 4
+};
+
+/**
+ * Gives an award to a post or comment
+ */
+export async function giveAward(
+  awardType: AwardType,
+  postId?: string,
+  commentId?: string,
+  message?: string,
+  userId: number = 1 // Default for development
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // Validate that either a post or comment ID is provided
+    if (!postId && !commentId) {
+      return { 
+        success: false, 
+        error: "Either a post or comment ID must be provided" 
+      };
+    }
+    
+    // Get the award ID from the award type
+    const awardId = AWARD_IDS[awardType];
+    if (!awardId) {
+      return { 
+        success: false, 
+        error: "Invalid award type" 
+      };
+    }
+    
+    // Create the award record in the awardGiven table
+    const { error } = await supabase
+      .from('awardGiven')
+      .insert({
+        "awardID": awardId,
+        "postID": postId || null,
+        "commentID": commentId || null,
+        "userID": userId,
+        message: message || null
+      });
+      
+    if (error) {
+      console.error("Error giving award:", error);
+      return { success: false, error: error.message };
+    }
+    
+    return { success: true };
+    
+  } catch (err: any) {
+    console.error("Exception giving award:", err);
+    return { success: false, error: "Failed to give award. Please try again." };
+  }
+}
+
+/**
+ * Gets awards for a post
+ */
+export async function getPostAwards(postId: string): Promise<{
+  awards: AwardType[];
+  error?: string;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // Query the awardGiven table to get all awards for the post
+    const { data, error } = await supabase
+      .from('awardGiven')
+      .select(`
+        award:awardID (
+          "awardType"
+        )
+      `)
+      .eq('postID', postId);
+      
+    if (error) {
+      console.error("Error fetching post awards:", error);
+      return { awards: [], error: error.message };
+    }
+    
+    // Extract award types from the response
+    const awardTypes: AwardType[] = (data || [])
+      .map(item => item.award?.awardType as AwardType)
+      .filter(Boolean);
+    
+    return { awards: awardTypes };
+    
+  } catch (err: any) {
+    console.error("Exception fetching post awards:", err);
+    return { awards: [], error: "Failed to fetch awards" };
+  }
+}
+
+/**
+ * Type for direct message
+ */
+export type DirectMessage = {
+  messageID?: number;
+  content: string;
+  read: boolean;
+  sentAt: string;
+  senderID: number;
+  receiverID: number;
+  senderName?: string;
+  receiverName?: string;
+};
+
+/**
+ * Type for conversation summary
+ */
+export type ConversationSummary = {
+  userId: number;
+  username: string;
+  avatarColor?: string;
+  latestMessage: string;
+  timestamp: string;
+  unreadCount: number;
+};
+
+/**
+ * Get conversations for a user
+ */
+export async function getUserConversations(
+  userId: number = 1 // Default for development
+): Promise<{
+  conversations: ConversationSummary[];
+  error: string | null;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // Fetch all conversations involving the user
+    const { data, error } = await supabase.rpc('get_user_conversations', {
+      p_user_id: userId
+    });
+    
+    if (error) {
+      console.error("Error fetching conversations:", error);
+      return { conversations: [], error: error.message };
+    }
+    
+    // Transform the data into our ConversationSummary type
+    const conversations: ConversationSummary[] = (data || []).map(item => ({
+      userId: item.other_user_id,
+      username: item.username,
+      avatarColor: getRandomColorForUser(item.username),
+      latestMessage: item.latest_message,
+      timestamp: formatRelativeTime(item.sent_at),
+      unreadCount: item.unread_count || 0
+    }));
+    
+    return { conversations, error: null };
+    
+  } catch (err: any) {
+    console.error("Exception fetching conversations:", err);
+    return { conversations: [], error: "Failed to load conversations" };
+  }
+}
+
+/**
+ * Get messages between two users
+ */
+export async function getConversationMessages(
+  currentUserId: number = 1, // Default for development
+  otherUserId: number
+): Promise<{
+  messages: DirectMessage[];
+  error: string | null;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // Fetch messages between the two users
+    const { data, error } = await supabase.rpc('get_conversation_messages', {
+      p_current_user_id: currentUserId,
+      p_other_user_id: otherUserId
+    });
+    
+    if (error) {
+      console.error("Error fetching messages:", error);
+      return { messages: [], error: error.message };
+    }
+    
+    // Mark messages as read
+    await supabase.rpc('mark_conversation_read', {
+      p_current_user_id: currentUserId,
+      p_other_user_id: otherUserId
+    });
+    
+    // Transform data to our DirectMessage type
+    const messages: DirectMessage[] = (data || []).map(msg => ({
+      messageID: msg.message_id,
+      content: msg.content,
+      read: msg.read,
+      sentAt: formatRelativeTime(msg.sent_at),
+      senderID: msg.sender_id,
+      receiverID: msg.receiver_id,
+      senderName: msg.sender_name,
+      receiverName: msg.receiver_name
+    }));
+    
+    return { messages, error: null };
+    
+  } catch (err: any) {
+    console.error("Exception fetching messages:", err);
+    return { messages: [], error: "Failed to load messages" };
+  }
+}
+
+/**
+ * Send a direct message
+ */
+export async function sendDirectMessage(
+  content: string,
+  receiverUsername: string,
+  senderUserId: number = 1 // Default for development
+): Promise<{
+  success: boolean;
+  messageId?: number;
+  error?: string;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // First get the receiver ID from the username
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('userID')
+      .eq('userName', receiverUsername)
+      .single();
+    
+    if (userError || !userData) {
+      console.error("Error getting receiver ID:", userError);
+      return { 
+        success: false, 
+        error: userError?.message || `User ${receiverUsername} not found` 
+      };
+    }
+    
+    const receiverId = userData.userID;
+    
+    // First try with the RPC function 
+    try {
+      const { data, error } = await supabase.rpc('create_direct_message', {
+        p_content: content,
+        p_sender_id: senderUserId,
+        p_receiver_id: receiverId
+      });
+      
+      if (error) throw error;
+      
+      return { 
+        success: true,
+        messageId: data
+      };
+    } catch (rpcError: any) {
+      console.warn("RPC approach failed, trying direct insert:", rpcError);
+      
+      // Fallback to direct insert as a last resort
+      const { data: insertData, error: insertError } = await supabase
+        .from('directMessage')
+        .insert({
+          content,
+          read: false,
+          "sentAt": new Date(),
+          "senderID": senderUserId,
+          "receiverID": receiverId
+        })
+        .select()
+        .single();
+        
+      if (insertError) {
+        console.error("Direct insert also failed:", insertError);
+        return { success: false, error: insertError.message };
+      }
+      
+      return { 
+        success: true,
+        messageId: insertData.messageID
+      };
+    }
+  } catch (err: any) {
+    console.error("Exception sending message:", err);
+    return { success: false, error: "Failed to send message" };
+  }
+}
+
+/**
+ * Get user ID from username
+ */
+export async function getUserIdByUsername(username: string): Promise<{
+  userId?: number;
+  error?: string;
+}> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('userID')
+      .eq('userName', username)
+      .single();
+    
+    if (error) {
+      console.error("Error fetching user ID:", error);
+      return { error: error.message };
+    }
+    
+    return { userId: data.userID };
+    
+  } catch (err: any) {
+    console.error("Exception fetching user ID:", err);
+    return { error: "Failed to get user ID" };
+  }
+}
+
+// Helper function to format relative time
+function formatRelativeTime(dateString: string): string {
+  try {
+    // Parse the date string into a Date object
+    const date = new Date(dateString);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return "unknown time";
+    }
+    
+    const now = new Date();
+    
+    // Calculate time difference in milliseconds
+    const diffMs = now.getTime() - date.getTime();
+    
+    // If the difference is negative or very small (< 1 second), it's a new message
+    if (diffMs < 1000) {
+      return 'Just now';
+    }
+    
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    // Choose the appropriate time unit
+    if (diffSeconds < 60) return `${diffSeconds} ${diffSeconds === 1 ? 'second' : 'seconds'} ago`;
+    if (diffMinutes < 60) return `${diffMinutes} ${diffMinutes === 1 ? 'minute' : 'minutes'} ago`;
+    if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+    
+    // If older than a week, use standard date format
+    return formatDate(dateString);
+  } catch (e) {
+    console.error("Error formatting relative time:", e);
+    return "unknown time";
+  }
 }
 
 // Add more API functions as needed

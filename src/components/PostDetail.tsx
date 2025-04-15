@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowUp, ArrowDown, MessageSquare, Award, Share2 } from 'lucide-react';
 import { Post as PostType } from '@/types/post';
-import { voteOnPost, getUserVoteOnPost } from '@/lib/supabase/api';
+import { voteOnPost, getUserVoteOnPost, getPostAwards, giveAward, AwardType } from '@/lib/supabase/api';
+import AwardIcon from './AwardIcon';
+import AwardSelector from './AwardSelector';
 
 type PostDetailProps = {
   post: PostType;
@@ -15,6 +17,9 @@ const PostDetail = ({ post }: PostDetailProps) => {
   const [voteStatus, setVoteStatus] = useState<'up' | 'down' | null>(null);
   const [upvotes, setUpvotes] = useState(post.upvotes);
   const [isVoting, setIsVoting] = useState(false);
+  const [isAwardSelectorOpen, setIsAwardSelectorOpen] = useState(false);
+  const [awards, setAwards] = useState<AwardType[]>([]);
+  const [isLoadingAwards, setIsLoadingAwards] = useState(false);
 
   // Fetch the user's current vote status when component mounts
   useEffect(() => {
@@ -24,6 +29,18 @@ const PostDetail = ({ post }: PostDetailProps) => {
     };
     
     fetchVoteStatus();
+  }, [post.id]);
+  
+  // Load awards for the post
+  useEffect(() => {
+    const loadAwards = async () => {
+      setIsLoadingAwards(true);
+      const { awards: postAwards } = await getPostAwards(post.id);
+      setAwards(postAwards);
+      setIsLoadingAwards(false);
+    };
+    
+    loadAwards();
   }, [post.id]);
 
   const handleUpvote = async () => {
@@ -136,6 +153,15 @@ const PostDetail = ({ post }: PostDetailProps) => {
     }
   };
 
+  const handleAwardClick = () => {
+    setIsAwardSelectorOpen(true);
+  };
+
+  const handleAwardGiven = (awardType: AwardType) => {
+    // Update the local state with the new award
+    setAwards([...awards, awardType]);
+  };
+
   return (
     <div className="bg-white dark:bg-[#121212] text-gray-900 dark:text-white px-4 py-2 rounded-lg mb-4">
       <div className="flex items-center mb-1 py-1">
@@ -149,6 +175,34 @@ const PostDetail = ({ post }: PostDetailProps) => {
           </span>
           <span className="mx-1">•</span>
           <span>{post.timePosted}</span>
+          
+          {/* Display awards if there are any */}
+          {awards.length > 0 && (
+            <>
+              <span className="mx-1">•</span>
+              <div className="flex items-center ml-1">
+                {/* Show up to 3 different award types */}
+                {Array.from(new Set(awards)).slice(0, 3).map((type, index) => (
+                  <AwardIcon 
+                    key={`${type}-${index}`} 
+                    type={type} 
+                    size={14} 
+                    className="mx-0.5" 
+                  />
+                ))}
+                
+                {/* If there are more than 3 award types, show a count */}
+                {new Set(awards).size > 3 && (
+                  <span className="text-xs text-gray-400 ml-1">+{new Set(awards).size - 3}</span>
+                )}
+                
+                {/* Show total award count */}
+                {awards.length > 0 && (
+                  <span className="text-xs text-gray-400 ml-1">{awards.length}</span>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
       
@@ -197,9 +251,14 @@ const PostDetail = ({ post }: PostDetailProps) => {
           <span className="text-sm text-gray-600 dark:text-gray-400">{post.commentCount}</span>
         </button>
         
-        <button className="flex items-center bg-gray-100 dark:bg-[#272729] rounded-full px-3 py-1 mr-2">
-          <Award size={16} className="mr-1 text-gray-500" />
-          <span className="text-sm text-gray-600 dark:text-gray-400">Award</span>
+        <button 
+          onClick={handleAwardClick}
+          className="flex items-center bg-gray-100 dark:bg-[#272729] rounded-full px-3 py-1 mr-2 cursor-pointer"
+        >
+          <AwardIcon type="gold" size={16} className="mr-1" />
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {awards.length > 0 ? awards.length : 'Award'}
+          </span>
         </button>
         
         <button 
@@ -210,6 +269,14 @@ const PostDetail = ({ post }: PostDetailProps) => {
           <span className="text-sm text-gray-600 dark:text-gray-400">Share</span>
         </button>
       </div>
+      
+      {/* Award selector modal */}
+      <AwardSelector
+        postId={post.id}
+        isOpen={isAwardSelectorOpen}
+        onClose={() => setIsAwardSelectorOpen(false)}
+        onAwardGiven={handleAwardGiven}
+      />
     </div>
   );
 };

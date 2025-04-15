@@ -1,6 +1,5 @@
 import { Award } from 'lucide-react';
-
-type AwardType = 'bronze' | 'silver' | 'gold' | 'diamond';
+import { AwardType } from '@/lib/supabase/api';
 
 type AwardIconProps = {
   type: AwardType;

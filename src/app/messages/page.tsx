@@ -5,141 +5,203 @@ import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { Send, Search } from 'lucide-react';
 import { USER_PROFILES } from '@/data/user-profiles';
-
-// Types
-type Message = {
-  id: string;
-  content: string;
-  senderId: string;
-  receiverId: string;
-  timestamp: string;
-  isRead: boolean;
-};
-
-type Conversation = {
-  userId: string;
-  username: string;
-  avatarColor?: string;
-  latestMessage: string;
-  timestamp: string;
-  unreadCount: number;
-};
+import { 
+  getUserConversations, 
+  getConversationMessages, 
+  sendDirectMessage, 
+  getUserIdByUsername,
+  DirectMessage,
+  ConversationSummary
+} from '@/lib/supabase/api';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
   const userFromURL = searchParams.get('user');
   
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [selectedUser, setSelectedUser] = useState<string | null>(userFromURL);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const currentUser = "curious_mind";
   
-  // Load conversations
+  // Current user info - in a real app this would come from auth
+  const currentUser = "QuirkyPanda42";
+  const currentUserId = 1; // Assuming user ID 1 is QuirkyPanda42
+  
+  // Load conversations on mount - with error handling and cleanup
   useEffect(() => {
-    // In a real app, fetch from API
-    setConversations([
-      {
-        userId: 'green_tech',
-        username: 'green_tech',
-        avatarColor: 'green',
-        latestMessage: 'Would you be willing to share any more details about the efficiency improvements?',
-        timestamp: '1 day ago',
-        unreadCount: 0
-      },
-      {
-        userId: 'film_buff',
-        username: 'film_buff',
-        avatarColor: 'purple',
-        latestMessage: "Hey, I saw your comment about underrated movies. Have you watched 'The Secret Life of Walter Mitty'?",
-        timestamp: '3 days ago',
-        unreadCount: 1
-      },
-      {
-        userId: 'history_nerd',
-        username: 'history_nerd',
-        avatarColor: 'red',
-        latestMessage: 'Thanks for the information!',
-        timestamp: '1 week ago',
-        unreadCount: 0
-      }
-    ]);
-  }, []);
-
-  // Load messages when a user is selected
-  useEffect(() => {
-    if (selectedUser) {
-      setIsLoading(true);
-      setTimeout(() => {
-        // In a real app, fetch from API based on selectedUser
-        if (selectedUser === 'green_tech') {
-          setMessages([
-            {
-              id: '1',
-              content: "Hi there! I read your post about renewable energy. That's fascinating research!",
-              senderId: currentUser,
-              receiverId: selectedUser,
-              timestamp: '2 days ago',
-              isRead: true
-            },
-            {
-              id: '2',
-              content: "Thanks for reaching out! Yes, the new solar panel technology has been showing great results in our tests.",
-              senderId: selectedUser,
-              receiverId: currentUser,
-              timestamp: '2 days ago',
-              isRead: true
-            },
-            {
-              id: '3',
-              content: "Would you be willing to share any more details about the efficiency improvements?",
-              senderId: currentUser,
-              receiverId: selectedUser,
-              timestamp: '1 day ago',
-              isRead: true
-            }
-          ]);
-        } else if (selectedUser === 'film_buff') {
-          setMessages([
-            {
-              id: '1',
-              content: "Hey, I saw your comment about underrated movies. Have you watched 'The Secret Life of Walter Mitty'?",
-              senderId: currentUser,
-              receiverId: selectedUser,
-              timestamp: '3 days ago',
-              isRead: true
-            }
-          ]);
+    let isMounted = true;
+    async function loadConversations() {
+      setIsLoadingConversations(true);
+      
+      try {
+        const { conversations, error } = await getUserConversations(currentUserId);
+        
+        if (error) {
+          console.error("Error loading conversations:", error);
+          if (isMounted) setError(`Failed to load conversations: ${error}`);
         } else {
-          setMessages([]);
+          if (isMounted) setConversations(conversations || []);
         }
-        setIsLoading(false);
-      }, 700);
+      } catch (err) {
+        console.error("Exception loading conversations:", err);
+        if (isMounted) setError("An unexpected error occurred");
+      } finally {
+        if (isMounted) setIsLoadingConversations(false);
+      }
     }
-  }, [selectedUser]);
-
+    
+    loadConversations();
+    
+    // Cleanup function to prevent state updates if component unmounts
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUserId]);
+  
+  // If user is provided in URL, fetch their ID
+  useEffect(() => {
+    let isMounted = true;
+    
+    async function loadInitialUser() {
+      if (userFromURL) {
+        try {
+          const { userId, error } = await getUserIdByUsername(userFromURL);
+          
+          if (!error && userId && isMounted) {
+            setSelectedUser(userFromURL);
+            setSelectedUserId(userId);
+          }
+        } catch (err) {
+          console.error("Error finding user:", err);
+        }
+      }
+    }
+    
+    loadInitialUser();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [userFromURL]);
+  
+  // Load messages when a user is selected - add proper error handling
+  useEffect(() => {
+    let isMounted = true;
+    let timeoutId = null;
+    
+    async function loadMessages() {
+      if (!selectedUser || !selectedUserId) return;
+      
+      setIsLoadingMessages(true);
+      setError(null);
+      
+      try {
+        const { messages, error } = await getConversationMessages(
+          currentUserId, 
+          selectedUserId
+        );
+        
+        if (error) {
+          console.error("Error loading messages:", error);
+          if (isMounted) setError(`Failed to load messages: ${error}`);
+        } else {
+          if (isMounted) setMessages(messages || []);
+        }
+      } catch (err) {
+        console.error("Exception loading messages:", err);
+        if (isMounted) setError("An unexpected error occurred");
+      } finally {
+        if (isMounted) setIsLoadingMessages(false);
+      }
+    }
+    
+    loadMessages();
+    
+    // Set up polling with proper cleanup
+    if (selectedUser && selectedUserId) {
+      // Using a timeout instead of interval for more control
+      const setupNextPoll = () => {
+        timeoutId = setTimeout(() => {
+          loadMessages();
+          if (isMounted) setupNextPoll();
+        }, 5000);
+      };
+      
+      setupNextPoll();
+    }
+    
+    return () => {
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [selectedUser, selectedUserId, currentUserId]);
+  
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  const handleSendMessage = () => {
+  
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedUser) return;
     
-    // In a real app, send to API
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      content: newMessage,
-      senderId: currentUser,
-      receiverId: selectedUser,
-      timestamp: 'Just now',
-      isRead: false
+    setIsSending(true);
+    const messageText = newMessage.trim();
+    setNewMessage('');
+    setError(null);
+    
+    // Create optimistic update with temporary ID
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage = {
+      tempId,
+      content: messageText,
+      read: true,
+      sentAt: 'Just now',
+      senderID: currentUserId,
+      receiverID: selectedUserId || 0,
+      senderName: currentUser
     };
     
-    setMessages([...messages, newMsg]);
-    setNewMessage('');
+    setMessages([...messages, optimisticMessage]);
+    
+    try {
+      const { success, error, messageId } = await sendDirectMessage(
+        messageText, 
+        selectedUser,
+        currentUserId
+      );
+      
+      if (!success) {
+        console.error("Failed to send message:", error);
+        setError(`Failed to send message: ${error}`);
+        // Remove the optimistic message
+        setMessages(msgs => msgs.filter(m => m.tempId !== tempId));
+      } else {
+        // Update the temporary message with the real message ID
+        setMessages(msgs => msgs.map(m => 
+          m.tempId === tempId 
+            ? { ...m, messageID: messageId, tempId: undefined } 
+            : m
+        ));
+      }
+    } catch (err: any) {
+      console.error("Exception sending message:", err);
+      setError("An unexpected error occurred");
+      // Remove the optimistic message
+      setMessages(msgs => msgs.filter(m => m.tempId !== tempId));
+    } finally {
+      setIsSending(false);
+    }
+  };
+  
+  const handleSelectUser = async (conversation: ConversationSummary) => {
+    setSelectedUser(conversation.username);
+    setSelectedUserId(conversation.userId);
   };
 
   // Function to get avatar color as hex
@@ -156,14 +218,14 @@ export default function MessagesPage() {
   };
 
   // Get selected user profile
-  const selectedUserProfile = USER_PROFILES.find(user => user.username === selectedUser);
+  const selectedUserProfile = conversations.find(conv => conv.username === selectedUser);
 
   return (
     <div className="fixed inset-0 flex overflow-hidden">
       <Sidebar />
       <div className="flex-1 flex flex-col pl-64 pt-16">
         <div className="flex flex-1 overflow-hidden h-[calc(100vh-64px)]">
-          {/* Conversations List - only this area should scroll */}
+          {/* Conversations List */}
           <div className="w-72 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Messages</h2>
@@ -177,17 +239,21 @@ export default function MessagesPage() {
               </div>
             </div>
             
-            {/* This div should scroll */}
+            {/* Conversations list - scrollable */}
             <div className="flex-1 overflow-y-auto">
-              {conversations.length > 0 ? (
+              {isLoadingConversations ? (
+                <div className="flex justify-center items-center h-full">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                </div>
+              ) : conversations.length > 0 ? (
                 <div>
                   {conversations.map((conv) => (
                     <button
                       key={conv.userId}
                       className={`w-full flex items-center px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-800 relative ${
-                        selectedUser === conv.userId ? 'bg-gray-100 dark:bg-gray-800' : ''
+                        selectedUser === conv.username ? 'bg-gray-100 dark:bg-gray-800' : ''
                       }`}
-                      onClick={() => setSelectedUser(conv.userId)}
+                      onClick={() => handleSelectUser(conv)}
                     >
                       <div 
                         className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold mr-3 flex-shrink-0"
@@ -224,7 +290,7 @@ export default function MessagesPage() {
           <div className="flex-1 flex flex-col h-full">
             {selectedUser ? (
               <>
-                {/* Header - fixed */}
+                {/* Header */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center">
                   <div 
                     className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3"
@@ -239,32 +305,36 @@ export default function MessagesPage() {
                 
                 {/* Messages - scrollable */}
                 <div className="flex-1 p-4 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-                  {isLoading ? (
+                  {isLoadingMessages ? (
                     <div className="flex justify-center items-center h-full">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                     </div>
+                  ) : error ? (
+                    <div className="flex justify-center items-center h-full text-red-500">
+                      <p>{error}</p>
+                    </div>
                   ) : messages.length > 0 ? (
                     <div className="space-y-3">
-                      {messages.map((msg) => (
+                      {messages.map((msg, index) => (
                         <div 
-                          key={msg.id} 
-                          className={`flex ${msg.senderId === currentUser ? 'justify-end' : 'justify-start'}`}
+                          key={msg.tempId || msg.messageID || `temp-${index}`}
+                          className={`flex ${msg.senderID === currentUserId ? 'justify-end' : 'justify-start'}`}
                         >
                           <div 
                             className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                              msg.senderId === currentUser 
+                              msg.senderID === currentUserId 
                                 ? 'bg-blue-500 text-white' 
                                 : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700'
                             }`}
                           >
                             <p className="whitespace-pre-wrap">{msg.content}</p>
                             <p className={`text-xs mt-1 ${
-                                msg.senderId === currentUser 
+                                msg.senderID === currentUserId 
                                   ? 'text-blue-100' 
                                   : 'text-gray-500 dark:text-gray-400'
                               }`}
                             >
-                              {msg.timestamp}
+                              {msg.sentAt}
                             </p>
                           </div>
                         </div>
@@ -279,7 +349,7 @@ export default function MessagesPage() {
                   )}
                 </div>
                 
-                {/* Message Input - fixed at bottom */}
+                {/* Message Input */}
                 <div className="p-4 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex">
                     <input
@@ -289,16 +359,23 @@ export default function MessagesPage() {
                       placeholder="Send a message..."
                       className="flex-1 border border-gray-300 dark:border-gray-600 rounded-l-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       onKeyPress={(e) => {
-                        if (e.key === 'Enter') handleSendMessage();
+                        if (e.key === 'Enter' && !isSending) handleSendMessage();
                       }}
+                      disabled={isSending}
                     />
                     <button 
                       onClick={handleSendMessage}
-                      className="bg-blue-500 hover:bg-blue-600 text-white rounded-r-lg px-4 py-2 flex items-center"
+                      className={`bg-blue-500 hover:bg-blue-600 text-white rounded-r-lg px-4 py-2 flex items-center ${
+                        isSending || !newMessage.trim() ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      disabled={isSending || !newMessage.trim()}
                     >
                       <Send size={18} />
                     </button>
                   </div>
+                  {error && (
+                    <p className="mt-2 text-sm text-red-500">{error}</p>
+                  )}
                 </div>
               </>
             ) : (
