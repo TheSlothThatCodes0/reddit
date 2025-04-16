@@ -21,6 +21,38 @@ async function getNextUserID() {
   return data && data.length > 0 ? data[0].userID + 1 : 1;
 }
 
+// Helper function to create a user in the custom users table
+async function createUserRecord(email: string, userName?: string) {
+  // Extract username from email if not provided
+  if (!userName) {
+    userName = email.split('@')[0];
+  }
+  
+  // Get the next available user ID
+  const nextUserID = await getNextUserID();
+  
+  // Store the user in our custom users table
+  const { data, error } = await supabase
+    .from('users')
+    .insert({
+      userName: userName,
+      userID: nextUserID,
+      email: email,
+      password: '', // Don't store the actual password, it's handled by Supabase Auth
+      createdAt: new Date().toISOString(),
+      karma: 0
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error inserting user into database:', error);
+    return { data: null, error };
+  }
+  
+  return { data, error: null };
+}
+
 export async function signUp(email: string, password: string) {
   // First, create the auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -125,4 +157,39 @@ export async function signInWithGoogle() {
     console.error("Error during Google sign in:", err);
     return { data: null, error: "Failed to sign in with Google" };
   }
+}
+
+/**
+ * Handle auth state change and ensure user exists in custom table
+ * Call this function when your app initializes
+ */
+export function setupAuthSync() {
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    // When a user signs in or is updated
+    if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
+      const { email } = session.user;
+      
+      if (!email) return; // Skip if no email
+      
+      // Check if user exists in custom table
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+      
+      // If user doesn't exist in our custom table, create them
+      if (!existingUser) {
+        // Get user name from provider data if available
+        let userName;
+        if (session.user.user_metadata?.full_name) {
+          userName = session.user.user_metadata.full_name;
+        } else if (session.user.user_metadata?.name) {
+          userName = session.user.user_metadata.name;
+        }
+        
+        await createUserRecord(email, userName);
+      }
+    }
+  });
 }

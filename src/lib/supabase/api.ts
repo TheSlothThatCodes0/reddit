@@ -1,20 +1,69 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { SupabaseFeedPost, Post } from "@/types/post";
 import type { Comment } from '@/types/comment'; // Add this import at the top with other imports
+import type { UserProfile } from "@/types/user"; // Add this for the UserProfile type
 
 // Create a shared Supabase client
 const getSupabaseClient = () => createClientComponentClient();
 
 /**
+ * Get the current user ID and username from Supabase auth
+ */
+export async function getCurrentUser(): Promise<{ userId: number; username: string | null }> {
+  const supabase = getSupabaseClient();
+  
+  try {
+    // Get the current authenticated user
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error || !user) {
+      return { userId: null, username: null };
+    }
+    
+    if (!user.email) {
+      console.error("Authenticated user has no email address.");
+      return { userId: null, username: null };
+    }
+    
+    // Query the users table to get the userID and username for the authenticated user
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('userID, username') // Select both userID and username
+      .eq('email', user.email)
+      .single();
+      
+    if (userError || !userData) {
+      console.error("Error getting user ID/username:", userError);
+      return { userId: null, username: null };
+    }
+    
+    return { userId: userData.userID, username: userData.username }; // Return both
+  } catch (err) {
+    console.error("Exception getting current user ID/username:", err);
+    return { userId: null, username: null };
+  }
+}
+
+/**
  * Fetches the personalized feed for a user
  */
-export async function getForYouFeed(userId: number = 1): Promise<{
+export async function getForYouFeed(providedUserId?: number): Promise<{
   posts: Post[];
   error: string | null;
 }> {
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = 51;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId === null) {
+        return { posts: [], error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     const { data, error } = await supabase.rpc('get_for_you_feed', { user_id: userId });
     
     if (error) {
@@ -63,15 +112,24 @@ export async function getForYouFeed(userId: number = 1): Promise<{
 /**
  * Fetches trending posts
  */
-export async function getTrendingPosts(userId: number = 1, limit: number = 50): Promise<{
+export async function getTrendingPosts(providedUserId?: number, limit: number = 50): Promise<{
   posts: Post[];
   error: string | null;
 }> {
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId === null) {
+        return { posts: [], error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     const { data, error } = await supabase.rpc('get_trending_posts', { 
-      p_user_id: userId,
       p_limit: limit 
     });
     
@@ -290,7 +348,7 @@ function formatDate(dateString: string): string {
 export async function createComment(
   postId: string, 
   content: string, 
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   success: boolean;
   commentId?: string;
@@ -299,6 +357,16 @@ export async function createComment(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { success: false, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     // Create the comment record
     const { data: commentData, error: commentError } = await supabase
       .from('comment')
@@ -335,7 +403,7 @@ export async function createCommentReply(
   postId: string,
   parentCommentId: string,
   content: string,
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   success: boolean;
   commentId?: string;
@@ -344,6 +412,16 @@ export async function createCommentReply(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { success: false, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     // Step 1: Create the reply comment
     const { data: commentData, error: commentError } = await supabase
       .from('comment')
@@ -401,7 +479,7 @@ export async function createCommentReply(
 export async function voteOnPost(
   postId: string,
   isUpvote: boolean,
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   success: boolean;
   error?: string;
@@ -409,6 +487,16 @@ export async function voteOnPost(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { success: false, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     // First check if the user has already voted on this post
     const { data: existingVote, error: checkError } = await supabase
       .from('vote')
@@ -497,7 +585,7 @@ export async function voteOnPost(
 export async function voteOnComment(
   commentId: string,
   isUpvote: boolean,
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   success: boolean;
   error?: string;
@@ -505,6 +593,16 @@ export async function voteOnComment(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { success: false, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     // First check if the user has already voted on this comment
     const { data: existingVote, error: checkError } = await supabase
       .from('vote')
@@ -581,7 +679,7 @@ export async function voteOnComment(
  */
 export async function getUserVoteOnPost(
   postId: string, 
-  userId: number = 1
+  providedUserId?: number
 ): Promise<{
   voteStatus: 'up' | 'down' | null;
   error?: string;
@@ -589,6 +687,16 @@ export async function getUserVoteOnPost(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { voteStatus: null, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     const { data, error } = await supabase
       .from('vote')
       .select('isUpvote')
@@ -618,7 +726,7 @@ export async function getUserVoteOnPost(
  */
 export async function getUserVoteOnComment(
   commentId: string, 
-  userId: number = 1
+  providedUserId?: number
 ): Promise<{
   voteStatus: 'up' | 'down' | null;
   error?: string;
@@ -626,6 +734,16 @@ export async function getUserVoteOnComment(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { voteStatus: null, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     const { data, error } = await supabase
       .from('vote')
       .select('isUpvote')
@@ -654,7 +772,7 @@ export async function getUserVoteOnComment(
  * Fetches communities (subreddits) the user has subscribed to
  */
 export async function getUserSubscribedCommunities(
-  userId: number = 1 // Default user ID for development
+  providedUserId?: number
 ): Promise<{
   communities: Array<{ id: number; name: string }>;
   error: string | null;
@@ -662,6 +780,16 @@ export async function getUserSubscribedCommunities(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { communities: [], error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     const { data, error } = await supabase
       .from('subscription')
       .select(`
@@ -935,7 +1063,7 @@ export async function createPost(
   title: string,
   content: string,
   subredditId: number,
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   success: boolean;
   postId?: string;
@@ -944,6 +1072,16 @@ export async function createPost(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { success: false, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     // Create JSON content object
     const contentObject = { text: content };
     
@@ -982,7 +1120,7 @@ export async function createSubreddit(
   name: string,
   description: string,
   isPrivate: boolean = false,
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   success: boolean;
   subreddit?: {
@@ -994,6 +1132,16 @@ export async function createSubreddit(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { success: false, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     // Create subreddit
     const { data, error } = await supabase.rpc('create_subreddit', {
       p_subreddit_name: name,
@@ -1050,7 +1198,7 @@ export async function createSubreddit(
  */
 export async function isSubscribed(
   subredditId: number,
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   isSubscribed: boolean;
   error: string | null;
@@ -1058,6 +1206,16 @@ export async function isSubscribed(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { isSubscribed: false, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     const { data, error } = await supabase
       .from('subscription')
       .select('*')
@@ -1086,7 +1244,7 @@ export async function isSubscribed(
  */
 export async function subscribeToSubreddit(
   subredditId: number,
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   success: boolean;
   error: string | null;
@@ -1094,6 +1252,16 @@ export async function subscribeToSubreddit(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { success: false, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     // Check if already subscribed directly (avoiding circular reference)
     const { data: existingSubscription, error: checkError } = await supabase
       .from('subscription')
@@ -1137,7 +1305,7 @@ export async function subscribeToSubreddit(
  */
 export async function unsubscribeFromSubreddit(
   subredditId: number,
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   success: boolean;
   error: string | null;
@@ -1145,6 +1313,16 @@ export async function unsubscribeFromSubreddit(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { success: false, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     const { error } = await supabase
       .from('subscription')
       .delete()
@@ -1220,7 +1398,7 @@ export async function getUserProfileByUsername(username: string): Promise<UserPr
       username: userData.username,
       displayName: userData.display_name || userData.username,
       avatarUrl: userData.avatar || undefined,
-      avatarColor: getRandomColorForUser(userData.username), // Helper function to generate consistent avatar colors
+      avatarColor: getRandomColorForUser(userData.username),
       bannerColor: undefined,
       bio: userData.bio || undefined,
       karma: userData.karma || 0,
@@ -1402,7 +1580,7 @@ export async function giveAward(
   postId?: string,
   commentId?: string,
   message?: string,
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   success: boolean;
   error?: string;
@@ -1410,6 +1588,16 @@ export async function giveAward(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId == null) {
+        return { success: false, error: "User not authenticated" };
+      }
+      userId = currentUserId;
+    }
+    
     // Validate that either a post or comment ID is provided
     if (!postId && !commentId) {
       return { 
@@ -1519,7 +1707,7 @@ export type ConversationSummary = {
  * Get conversations for a user
  */
 export async function getUserConversations(
-  userId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   conversations: ConversationSummary[];
   error: string | null;
@@ -1527,6 +1715,16 @@ export async function getUserConversations(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let userId = providedUserId;
+    if (!userId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      if (currentUserId === null) {
+        return { conversations: [], error: "User not authenticated" };
+      }
+      userId = currentUserId || undefined;
+    }
+    
     // Fetch all conversations involving the user
     const { data, error } = await supabase.rpc('get_user_conversations', {
       p_user_id: userId
@@ -1559,8 +1757,8 @@ export async function getUserConversations(
  * Get messages between two users
  */
 export async function getConversationMessages(
-  currentUserId: number = 1, // Default for development
-  otherUserId: number
+  otherUserId: number,
+  providedUserId?: number
 ): Promise<{
   messages: DirectMessage[];
   error: string | null;
@@ -1568,6 +1766,16 @@ export async function getConversationMessages(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let currentUserId = providedUserId;
+    if (!currentUserId) {
+      const { userId: fetchedUserId } = await getCurrentUser();
+      if (fetchedUserId == null) {
+        return { messages: [], error: "User not authenticated" };
+      }
+      currentUserId = fetchedUserId;
+    }
+    
     // Fetch messages between the two users
     const { data, error } = await supabase.rpc('get_conversation_messages', {
       p_current_user_id: currentUserId,
@@ -1611,7 +1819,7 @@ export async function getConversationMessages(
 export async function sendDirectMessage(
   content: string,
   receiverUsername: string,
-  senderUserId: number = 1 // Default for development
+  providedUserId?: number
 ): Promise<{
   success: boolean;
   messageId?: number;
@@ -1620,6 +1828,16 @@ export async function sendDirectMessage(
   const supabase = getSupabaseClient();
   
   try {
+    // Get current user ID if not provided
+    let senderUserId = providedUserId;
+    if (!senderUserId) {
+      const { userId: currentUserId } = await getCurrentUser();
+      senderUserId = currentUserId || undefined;
+      if (!senderUserId) {
+        return { success: false, error: "User not authenticated" };
+      }
+    }
+    
     // First get the receiver ID from the username
     const { data: userData, error: userError } = await supabase
       .from('users')
